@@ -191,6 +191,9 @@
     "useSpeechOutputAzure": {
       "value": "${USE_SPEECH_OUTPUT_AZURE=false}"
     },
+    "usePiiRedaction": {
+      "value": "${USE_PII_REDACTION=true}"
+    },
     "speechServiceName": {
       "value": "${AZURE_SPEECH_SERVICE}"
     },
@@ -200,14 +203,26 @@
     "speechServiceResourceGroupName": {
       "value": "${AZURE_SPEECH_SERVICE_RESOURCE_GROUP}"
     },
+    "textAnalyticsServiceName":{ 
+      "value": "${AZURE_TEXT_ANALYTICS_SERVICE}"
+    },
+    "textAnalyticsResourceGroupName": {
+      "value": "${AZURE_TEXT_ANALYTICS_RESOURCE_GROUP}"
+    },
+    "textAnalyticsResourceGroupLocation": {
+      "value": "${AZURE_TEXT_ANALYTICS_LOCATION}"
+    },
+    "textAnalyticsSkuName": {
+      "value": "${AZURE_TEXT_ANALYTICS_SKU=F0}"
+    },
     "speechServiceLocation": {
       "value": "${AZURE_SPEECH_SERVICE_LOCATION}"
     },
     "useChatHistoryBrowser": {
-      "value": "${USE_CHAT_HISTORY_BROWSER=false}"
+      "value": "${USE_CHAT_HISTORY_BROWSER=true}"
     },
     "useChatHistoryCosmos": {
-      "value": "${USE_CHAT_HISTORY_COSMOS=false}"
+      "value": "${USE_CHAT_HISTORY_COSMOS=true}"
     },
     "cosmosDbSkuName": {
       "value": "${AZURE_COSMOSDB_SKU=serverless}"
@@ -228,13 +243,13 @@
       "value": "${AZURE_SPEECH_SERVICE_VOICE}"
     },
     "useAuthentication": {
-      "value": "${AZURE_USE_AUTHENTICATION=false}"
+      "value": "${AZURE_USE_AUTHENTICATION=true}"
     },
     "enforceAccessControl": {
-      "value": "${AZURE_ENFORCE_ACCESS_CONTROL=false}"
+      "value": "${AZURE_ENFORCE_ACCESS_CONTROL=true}"
     },
     "disableAppServicesAuthentication": {
-      "value": "${AZURE_DISABLE_APP_SERVICES_AUTHENTICATION=false}"
+      "value": "${AZURE_DISABLE_APP_SERVICES_AUTHENTICATION=true}"
     },
     "enableGlobalDocuments": {
       "value": "${AZURE_ENABLE_GLOBAL_DOCUMENT_ACCESS=false}"
@@ -261,10 +276,10 @@
       "value": "${ALLOWED_ORIGIN}"
     },
     "publicNetworkAccess": {
-      "value": "${AZURE_PUBLIC_NETWORK_ACCESS=Enabled}"
+      "value": "${AZURE_PUBLIC_NETWORK_ACCESS=Disabled}"
     },
     "usePrivateEndpoint": {
-      "value": "${AZURE_USE_PRIVATE_ENDPOINT=false}"
+      "value": "${AZURE_USE_PRIVATE_ENDPOINT=true}"
     },
     "bypass": {
       "value": "${AZURE_NETWORK_BYPASS=AzureServices}"
@@ -288,7 +303,7 @@
       "value": "${TF_BUILD}"
     },
     "deploymentTarget": {
-      "value": "${DEPLOYMENT_TARGET=containerapps}"
+      "value": "${DEPLOYMENT_TARGET=appservice}"
     },
     "webAppExists": {
         "value": "${SERVICE_WEB_RESOURCE_EXISTS=false}"

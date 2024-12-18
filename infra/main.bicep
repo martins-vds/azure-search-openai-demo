@@ -105,7 +105,7 @@ param documentIntelligenceResourceGroupName string = '' // Set in main.parameter
 // Limited regions for new version:
 // https://learn.microsoft.com/azure/ai-services/document-intelligence/concept-layout
 @description('Location for the Document Intelligence resource group')
-@allowed(['eastus', 'westus2', 'westeurope'])
+@allowed(['canadacentral', 'eastus', 'westus2', 'westeurope'])
 @metadata({
   azd: {
     type: 'location'
@@ -123,9 +123,16 @@ param computerVisionSkuName string // Set in main.parameters.json
 param contentUnderstandingServiceName string = '' // Set in main.parameters.json
 param contentUnderstandingResourceGroupName string = '' // Set in main.parameters.json
 
+@description('Location for the Text Analytics resource group')
+@allowed(['canadacentral'])
+@metadata({
+  azd: {
+    type: 'location'
+  }
+})
+param textAnalyticsResourceGroupLocation string // Set in main.parameters.json
 param textAnalyticsServiceName string = '' // Set in main.parameters.json
 param textAnalyticsResourceGroupName string = '' // Set in main.parameters.json
-param textAnalyticsResourceGroupLocation string = '' // Set in main.parameters.json
 param textAnalyticsSkuName string // Set in main.parameters.json
 
 param chatGptModelName string = ''
@@ -236,7 +243,7 @@ param useLocalPdfParser bool = false
 param useLocalHtmlParser bool = false
 
 @description('Enable redaction of PII in the chat history')
-param usePIIRedaction bool = false
+param usePiiRedaction bool = false
 
 var abbrs = loadJsonContent('abbreviations.json')
 var resourceToken = toLower(uniqueString(subscription().id, environmentName, location))
@@ -708,7 +715,7 @@ module speech 'br/public:avm/res/cognitive-services/account:0.7.2' = if (useSpee
   }
 }
 
-module textAnalytics 'br/public:avm/res/cognitive-services/account:0.7.2' = if (usePIIRedaction) {
+module textAnalytics 'br/public:avm/res/cognitive-services/account:0.7.2' = if (usePiiRedaction) {
   name: 'text-analytics'
   scope: textAnalyticsResourceGroup
   params: {
@@ -990,7 +997,7 @@ module cosmosDbDataContribRoleUser 'core/security/documentdb-sql-role.bicep' = i
   }
 }
 
-module textAnalyticsRoleUser 'core/security/role.bicep' = if (usePIIRedaction) {
+module textAnalyticsRoleUser 'core/security/role.bicep' = if (usePiiRedaction) {
   scope: textAnalyticsResourceGroup
   name: 'text-analytics-role-user'
   params: {
@@ -1147,7 +1154,7 @@ var otherPrivateEndpointConnections = (usePrivateEndpoint && deploymentTarget ==
         resourceIds: [backend.outputs.id]
       }
       {
-        groupId: 'cosmosdb'
+        groupId: 'sql'
         dnsZoneName: 'privatelink.documents.azure.com'
         resourceIds: (useAuthentication && useChatHistoryCosmos) ? [cosmosDb.outputs.resourceId] : []
       }
