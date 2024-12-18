@@ -911,6 +911,7 @@ var openAiApi = {
   name: 'azure-openai-service-api'
   path: 'openai'
   value: loadTextContent('core/apim/api_definitions/AzureOpenAI_OpenAPI.json')
+  serviceUrl: null
   protocols: [
     'https'
     'http'
