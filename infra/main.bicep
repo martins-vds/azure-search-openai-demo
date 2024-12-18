@@ -28,8 +28,8 @@ param apimResourceGroupName string = '' // Set in main.parameters.json
 param apimLocation string = location
 @allowed(['Developer'])
 param apimSkuName string = 'Developer' // Set in main.parameters.json
-param apimRateLimitCalls int = 100
-param apimRateLimitPeriod int = 60
+// param apimRateLimitCalls int = 100
+// param apimRateLimitPeriod int = 60
 
 param searchServiceName string = '' // Set in main.parameters.json
 param searchServiceResourceGroupName string = '' // Set in main.parameters.json
@@ -910,7 +910,7 @@ var openAiApi = {
   displayName: 'Azure OpenAI API'
   name: 'azure-openai-service-api'
   path: 'openai'
-  value: loadJsonContent('core/apim/api_definitions/AzureOpenAI_OpenAPI.json')
+  value: loadTextContent('core/apim/api_definitions/AzureOpenAI_OpenAPI.json')
   protocols: [
     'https'
     'http'
@@ -943,15 +943,7 @@ var apimAllowedOriginsXml = empty(apimAllowedOrigins)
   ? '<origin>*</origin>'
   : join(map(apimAllowedOrigins, arg => '<origin>${arg}</origin>'), '\n')
 var policyTemplate = loadTextContent('./core/apim/apim_policies/global.xml')
-var policy = replace(
-  replace(
-    replace(policyTemplate, '{{allowedOrigins}}', apimAllowedOriginsXml),
-    '{{rateLimitCalls}}',
-    string(apimRateLimitCalls)
-  ),
-  '{{rateLimitPeriod}}',
-  string(apimRateLimitPeriod)
-)
+var policy = replace(policyTemplate, '{{allowedOrigins}}', apimAllowedOriginsXml)
 
 var policies = [
   {

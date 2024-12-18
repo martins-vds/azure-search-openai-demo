@@ -11,7 +11,6 @@
                 <header>*</header>
             </allowed-headers>
         </cors>
-        <rate-limit calls="{{rateLimitCalls}}" renewal-period="{{rateLimitPeriod}}" remaining-calls-variable-name="remainingCallsPerSubscription" />
     </inbound>
     <backend>
         <forward-request />
