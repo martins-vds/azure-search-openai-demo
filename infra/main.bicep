@@ -878,6 +878,78 @@ module cosmosDb 'br/public:avm/res/document-db/database-account:0.6.1' = if (use
   }
 }
 
+module isolation 'network-isolation.bicep' = {
+  name: 'networks'
+  scope: resourceGroup
+  params: {
+    deploymentTarget: deploymentTarget
+    location: location
+    tags: tags
+    vnetName: '${abbrs.virtualNetworks}${resourceToken}'
+    // Need to check deploymentTarget due to https://github.com/Azure/bicep/issues/3990
+    appServicePlanName: deploymentTarget == 'appservice' ? appServicePlan.outputs.name : ''
+    usePrivateEndpoint: usePrivateEndpoint
+  }
+}
+
+var environmentData = environment()
+
+var openAiPrivateEndpointConnection = (isAzureOpenAiHost && deployAzureOpenAi && deploymentTarget == 'appservice')
+  ? [
+      {
+        groupId: 'account'
+        dnsZoneName: 'privatelink.openai.azure.com'
+        resourceIds: concat(
+          [openAi.outputs.resourceId],
+          useGPT4V ? [computerVision.outputs.resourceId] : [],
+          !useLocalPdfParser ? [documentIntelligence.outputs.resourceId] : []
+        )
+      }
+    ]
+  : []
+
+var otherPrivateEndpointConnections = (usePrivateEndpoint && deploymentTarget == 'appservice')
+  ? [
+      {
+        groupId: 'blob'
+        dnsZoneName: 'privatelink.blob.${environmentData.suffixes.storage}'
+        resourceIds: concat([storage.outputs.id], useUserUpload ? [userStorage.outputs.id] : [])
+      }
+      {
+        groupId: 'searchService'
+        dnsZoneName: 'privatelink.search.windows.net'
+        resourceIds: [searchService.outputs.id]
+      }
+      {
+        groupId: 'sites'
+        dnsZoneName: 'privatelink.azurewebsites.net'
+        resourceIds: [backend.outputs.id]
+      }
+      {
+        groupId: 'sql'
+        dnsZoneName: 'privatelink.documents.azure.com'
+        resourceIds: (useAuthentication && useChatHistoryCosmos) ? [cosmosDb.outputs.resourceId] : []
+      }
+    ]
+  : []
+
+var privateEndpointConnections = concat(otherPrivateEndpointConnections, openAiPrivateEndpointConnection)
+
+module privateEndpoints 'private-endpoints.bicep' = if (usePrivateEndpoint && deploymentTarget == 'appservice') {
+  name: 'privateEndpoints'
+  scope: resourceGroup
+  params: {
+    location: location
+    tags: tags
+    resourceToken: resourceToken
+    privateEndpointConnections: privateEndpointConnections
+    applicationInsightsId: useApplicationInsights ? monitoring.outputs.applicationInsightsId : ''
+    logAnalyticsWorkspaceId: useApplicationInsights ? monitoring.outputs.logAnalyticsWorkspaceId : ''
+    vnetName: isolation.outputs.vnetName
+    vnetPeSubnetName: isolation.outputs.backendSubnetId
+  }
+}
+
 // USER ROLES
 var principalType = empty(runningOnGh) && empty(runningOnAdo) ? 'User' : 'ServicePrincipal'
 
@@ -1104,77 +1176,6 @@ module cosmosDbRoleBackend 'core/security/documentdb-sql-role.bicep' = if (useAu
     roleDefinitionId: (useAuthentication && useChatHistoryCosmos)
       ? '/${subscription().id}/resourceGroups/${cosmosDb.outputs.resourceGroupName}/providers/Microsoft.DocumentDB/databaseAccounts/${cosmosDb.outputs.name}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002'
       : ''
-  }
-}
-
-module isolation 'network-isolation.bicep' = {
-  name: 'networks'
-  scope: resourceGroup
-  params: {
-    deploymentTarget: deploymentTarget
-    location: location
-    tags: tags
-    vnetName: '${abbrs.virtualNetworks}${resourceToken}'
-    // Need to check deploymentTarget due to https://github.com/Azure/bicep/issues/3990
-    appServicePlanName: deploymentTarget == 'appservice' ? appServicePlan.outputs.name : ''
-    usePrivateEndpoint: usePrivateEndpoint
-  }
-}
-
-var environmentData = environment()
-
-var openAiPrivateEndpointConnection = (isAzureOpenAiHost && deployAzureOpenAi && deploymentTarget == 'appservice')
-  ? [
-      {
-        groupId: 'account'
-        dnsZoneName: 'privatelink.openai.azure.com'
-        resourceIds: concat(
-          [openAi.outputs.resourceId],
-          useGPT4V ? [computerVision.outputs.resourceId] : [],
-          !useLocalPdfParser ? [documentIntelligence.outputs.resourceId] : []
-        )
-      }
-    ]
-  : []
-var otherPrivateEndpointConnections = (usePrivateEndpoint && deploymentTarget == 'appservice')
-  ? [
-      {
-        groupId: 'blob'
-        dnsZoneName: 'privatelink.blob.${environmentData.suffixes.storage}'
-        resourceIds: concat([storage.outputs.id], useUserUpload ? [userStorage.outputs.id] : [])
-      }
-      {
-        groupId: 'searchService'
-        dnsZoneName: 'privatelink.search.windows.net'
-        resourceIds: [searchService.outputs.id]
-      }
-      {
-        groupId: 'sites'
-        dnsZoneName: 'privatelink.azurewebsites.net'
-        resourceIds: [backend.outputs.id]
-      }
-      {
-        groupId: 'sql'
-        dnsZoneName: 'privatelink.documents.azure.com'
-        resourceIds: (useAuthentication && useChatHistoryCosmos) ? [cosmosDb.outputs.resourceId] : []
-      }
-    ]
-  : []
-
-var privateEndpointConnections = concat(otherPrivateEndpointConnections, openAiPrivateEndpointConnection)
-
-module privateEndpoints 'private-endpoints.bicep' = if (usePrivateEndpoint && deploymentTarget == 'appservice') {
-  name: 'privateEndpoints'
-  scope: resourceGroup
-  params: {
-    location: location
-    tags: tags
-    resourceToken: resourceToken
-    privateEndpointConnections: privateEndpointConnections
-    applicationInsightsId: useApplicationInsights ? monitoring.outputs.applicationInsightsId : ''
-    logAnalyticsWorkspaceId: useApplicationInsights ? monitoring.outputs.logAnalyticsWorkspaceId : ''
-    vnetName: isolation.outputs.vnetName
-    vnetPeSubnetName: isolation.outputs.backendSubnetId
   }
 }
 
