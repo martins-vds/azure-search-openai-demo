@@ -1,0 +1,21 @@
+<policies>
+    <inbound>
+        <cors allow-credentials="false">
+            <allowed-origins>
+                {{allowedOrigins}}
+            </allowed-origins>
+            <allowed-methods>
+                <method>*</method>
+            </allowed-methods>
+            <allowed-headers>
+                <header>*</header>
+            </allowed-headers>
+        </cors>
+        <rate-limit calls="{{rateLimitCalls}}" renewal-period="{{rateLimitPeriod}}" remaining-calls-variable-name="remainingCallsPerSubscription" />
+    </inbound>
+    <backend>
+        <forward-request />
+    </backend>
+    <outbound />
+    <on-error />
+</policies>

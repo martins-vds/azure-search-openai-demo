@@ -1,0 +1,3 @@
+<fragment>
+    <rate-limit calls="{{rateLimitCalls}}" renewal-period="{{rateLimitPeriod}}" remaining-calls-variable-name="remainingCallsPerSubscription" />
+</fragment>

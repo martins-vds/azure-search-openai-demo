@@ -1,0 +1,13 @@
+<fragment>
+    <cors allow-credentials="false">
+        <allowed-origins>
+            {{allowedOrigins}}
+        </allowed-origins>
+        <allowed-methods>
+            <method>*</method>
+        </allowed-methods>
+        <allowed-headers>
+            <header>*</header>
+        </allowed-headers>
+    </cors>
+</fragment>

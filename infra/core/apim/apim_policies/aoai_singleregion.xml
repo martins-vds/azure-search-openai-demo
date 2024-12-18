@@ -1,0 +1,101 @@
+<policies>
+    <inbound>
+        <base />
+        <choose>
+            <when condition="@(context.Operation.Name.Equals("ChatCompletions_Create"))">
+                <set-variable name="unredactedBody" value="@(context.Request.Body.As<JObject>())" />
+                <set-variable name="piiRequest" value="@{           
+                    JObject unredactedRequest = (JObject) context.Variables["unredactedBody"];
+
+                    string redactionRequestString = "{'kind':'PiiEntityRecognition','parameters':{'modelVersion':'latest'},'analysisInput':{'documents':[]}}";
+                    JObject redactionRequest = JObject.Parse(redactionRequestString);
+
+                    var messagesCount = ((JArray) unredactedRequest["messages"]).Count;
+
+                    var documentsToRedact = ((JArray) redactionRequest["analysisInput"]["documents"]);
+
+                    for (int i = 0; i < messagesCount; i++)
+                    {
+                        var message = unredactedRequest["messages"][i];
+                        
+                        if(message["role"].Value<string>() != "user"){ continue; }
+                        
+                        documentsToRedact.Add(JToken.FromObject(new
+                        {
+                            id = (i + 1).ToString(),
+                            language = "en",
+                            text = message["content"].Value<string>()
+                        }));
+                    }
+
+                    return redactionRequest.ToString();
+                }" />
+                <send-request mode="new" response-variable-name="redactedResponse" timeout="20" ignore-error="true">
+                    <set-url>{{languageServiceUri}}language/:analyze-text?api-version=2024-11-01</set-url>
+                    <set-method>POST</set-method>
+                    <set-header name="Ocp-Apim-Subscription-Key" exists-action="override">
+                        <value>{{languageServiceApiKey}}</value>
+                    </set-header>
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-body>@((string)context.Variables["piiRequest"])</set-body>
+                </send-request>
+                <!-- Copy this snippet into the outbound section to remove a number of data elements from the response received from the backend service based on the name of the product -->
+                <choose>
+                    <when condition="@(((IResponse)context.Variables["redactedResponse"]).StatusCode == 200)">
+                        <set-body>@{
+                            var unredactedRequest = (JObject) context.Variables["unredactedBody"];
+
+                            var redactedBody = ((IResponse)context.Variables["redactedResponse"]).Body.As<JObject>();                    
+
+                            var unredactedMessagesCount = ((JArray) unredactedRequest["messages"]).Count;
+                            var redactedMessages = ((JArray) redactedBody["results"]["documents"]);
+
+                            for (int i = 0; i < unredactedMessagesCount; i++){
+                                var unredactedMessage = unredactedRequest["messages"][i];
+                                
+                                if(unredactedMessage["role"].Value<string>() != "user"){ continue; }
+                                
+                                var redactedMessage = redactedMessages.FirstOrDefault(m => m["id"].Value<string>() == (i + 1).ToString());
+                                
+                                if (redactedMessage == null) { continue; }
+                                
+                                unredactedMessage["content"] = redactedMessage["redactedText"].Value<string>();
+                            }
+
+                            return unredactedRequest.ToString();
+                        }</set-body>
+                    </when>
+                    <otherwise>
+                        <set-status code="@(((IResponse)context.Variables["redactedResponse"]).StatusCode)" reason="Unauthorized" />
+                        <set-body>@{
+                            string problemDetailsString = "{'type':'','status':0,'title':'','detail':'','code':'','errors':[{'detail':''}]}";
+                            JObject problemDetails = JObject.Parse(problemDetailsString);
+
+                            problemDetails["type"] = "https://contoso.com/redaction-failure";
+                            problemDetails["status"] = ((IResponse)context.Variables["redactedResponse"]).StatusCode;
+                            problemDetails["title"] = "Failed to redact request.";
+                            problemDetails["detail"] = "Failed to redact request.";
+                            problemDetails["code"] = ((IResponse)context.Variables["redactedResponse"]).StatusCode.ToString();
+                            problemDetails["errors"][0]["detail"] = ((IResponse)context.Variables["redactedResponse"]).Body.As<string>();
+
+                            return problemDetails.ToString();
+                        }</set-body>
+                    </otherwise>
+                </choose>
+            </when>
+        </choose>
+        <set-backend-service backend-id="aoai-primary-backend" />
+        <authentication-managed-identity resource="https://cognitiveservices.azure.com" />
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>

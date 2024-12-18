@@ -18,6 +18,19 @@ param applicationInsightsDashboardName string = '' // Set in main.parameters.jso
 param applicationInsightsName string = '' // Set in main.parameters.json
 param logAnalyticsName string = '' // Set in main.parameters.json
 
+param apimServiceName string = '' // Set in main.parameters.json
+param apimResourceGroupName string = '' // Set in main.parameters.json
+@metadata({
+  azd: {
+    type: 'location'
+  }
+})
+param apimLocation string = location
+@allowed(['Developer'])
+param apimSkuName string = 'Developer' // Set in main.parameters.json
+param apimRateLimitCalls int = 100
+param apimRateLimitPeriod int = 60
+
 param searchServiceName string = '' // Set in main.parameters.json
 param searchServiceResourceGroupName string = '' // Set in main.parameters.json
 param searchServiceLocation string = '' // Set in main.parameters.json
@@ -330,6 +343,10 @@ resource textAnalyticsResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-
   name: !empty(textAnalyticsResourceGroupName) ? textAnalyticsResourceGroupName : resourceGroup.name
 }
 
+resource apimResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' existing = if (!empty(apimResourceGroupName)) {
+  name: !empty(apimResourceGroupName) ? apimResourceGroupName : resourceGroup.name
+}
+
 // Monitor application with Azure Monitor
 module monitoring 'core/monitor/monitoring.bicep' = if (useApplicationInsights) {
   name: 'monitoring'
@@ -442,12 +459,16 @@ var appEnvVariables = {
   RUNNING_IN_PRODUCTION: 'true'
 }
 
+var backendServiceNameComputed = !empty(backendServiceName)
+  ? backendServiceName
+  : '${abbrs.webSitesAppService}backend-${resourceToken}'
+
 // App Service for the web application (Python Quart app with JS frontend)
 module backend 'core/host/appservice.bicep' = if (deploymentTarget == 'appservice') {
   name: 'web'
   scope: resourceGroup
   params: {
-    name: !empty(backendServiceName) ? backendServiceName : '${abbrs.webSitesAppService}backend-${resourceToken}'
+    name: backendServiceNameComputed
     location: location
     tags: union(tags, { 'azd-service-name': 'backend' })
     // Need to check deploymentTarget again due to https://github.com/Azure/bicep/issues/3990
@@ -505,10 +526,6 @@ module containerApps 'core/host/container-apps.bicep' = if (deploymentTarget == 
 module acaBackend 'core/host/container-app-upsert.bicep' = if (deploymentTarget == 'containerapps') {
   name: 'aca-web'
   scope: resourceGroup
-  dependsOn: [
-    containerApps
-    acaIdentity
-  ]
   params: {
     name: !empty(backendServiceName) ? backendServiceName : '${abbrs.webSitesContainerApps}backend-${resourceToken}'
     location: location
@@ -875,6 +892,112 @@ module cosmosDb 'br/public:avm/res/document-db/database-account:0.6.1' = if (use
         ]
       }
     ]
+  }
+}
+
+var openAiBackends = [
+  {
+    name: 'aoai-primary-backend'
+    tls: {
+      validateCertificateChain: false
+      validateCertificateName: false
+    }
+    url: openAi.outputs.endpoint
+  }
+]
+
+var openAiApi = {
+  displayName: 'Azure OpenAI API'
+  name: 'azure-openai-service-api'
+  path: 'openai'
+  value: loadJsonContent('core/apim/api_definitions/AzureOpenAI_OpenAPI.json')
+  protocols: [
+    'https'
+    'http'
+  ]
+  format: 'openapi+json'
+  subscriptionKeyParameterNames: {
+    header: 'api-key'
+  }
+  policies: [
+    {
+      format: 'rawxml'
+      value: loadTextContent('./core/apim/apim_policies/aoai_singleregion.xml')
+    }
+  ]
+  subscriptions: [
+    {
+      displayName: 'azure-openai-subscription'
+      name: 'azure-openai-subscription'
+      allowTracing: false
+      state: 'active'
+    }
+  ]
+  subscriptionRequired: true
+}
+
+var apimAllowedOrigins = [
+  'https://${backendServiceNameComputed}.azurewebsites.net'
+]
+var apimAllowedOriginsXml = empty(apimAllowedOrigins)
+  ? '<origin>*</origin>'
+  : join(map(apimAllowedOrigins, arg => '<origin>${arg}</origin>'), '\n')
+var policyTemplate = loadTextContent('./core/apim/apim_policies/global.xml')
+var policy = replace(
+  replace(
+    replace(policyTemplate, '{{allowedOrigins}}', apimAllowedOriginsXml),
+    '{{rateLimitCalls}}',
+    string(apimRateLimitCalls)
+  ),
+  '{{rateLimitPeriod}}',
+  string(apimRateLimitPeriod)
+)
+
+var policies = [
+  {
+    format: 'rawxml'
+    value: policy
+  }
+]
+
+module apim 'br/public:avm/res/api-management/service:0.6.0' = {
+  name: 'apim'
+  scope: apimResourceGroup
+  params: {
+    // Required parameters
+    name: !empty(apimServiceName) ? apimServiceName : '${abbrs.apiManagementService}${resourceToken}'
+    publisherEmail: 'apimgmt-noreply@mail.windowsazure.com'
+    publisherName: 'apimgmt-noreply'
+    // Non-required parameters
+    location: apimLocation
+    sku: apimSkuName
+    virtualNetworkType: 'External'
+    subnetResourceId: isolation.outputs.apimSubnetId
+    namedValues: [
+      {
+        displayName: 'aiLoggerInstrumentationKey'
+        name: 'aiLoggerInstrumentationKey'
+        secret: true
+        value: monitoring.outputs.applicationInsightsInstrumentationKey
+      }
+    ]
+    apis: [
+      openAiApi
+    ]
+    backends: openAiBackends
+    loggers: [
+      {
+        credentials: {
+          instrumentationKey: '{{aiLoggerInstrumentationKey}}'
+        }
+        description: 'Logger to Azure Application Insights'
+        isBuffered: true
+        loggerType: 'applicationInsights'
+        name: 'aiLogger'
+        resourceId: monitoring.outputs.applicationInsightsId
+      }
+    ]
+    policies: policies
   }
 }
 
