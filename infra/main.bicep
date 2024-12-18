@@ -2,6 +2,7 @@ targetScope = 'subscription'
 
 @minLength(1)
 @maxLength(64)
+@allowed(['dev', 'prod'])
 @description('Name of the the environment which is used to generate a short unique hash used in all resources.')
 param environmentName string
 
@@ -122,6 +123,11 @@ param computerVisionSkuName string // Set in main.parameters.json
 param contentUnderstandingServiceName string = '' // Set in main.parameters.json
 param contentUnderstandingResourceGroupName string = '' // Set in main.parameters.json
 
+param textAnalyticsServiceName string = '' // Set in main.parameters.json
+param textAnalyticsResourceGroupName string = '' // Set in main.parameters.json
+param textAnalyticsResourceGroupLocation string = '' // Set in main.parameters.json
+param textAnalyticsSkuName string // Set in main.parameters.json
+
 param chatGptModelName string = ''
 param chatGptDeploymentName string = ''
 param chatGptDeploymentVersion string = ''
@@ -170,11 +176,11 @@ param tenantId string = tenant().tenantId
 param authTenantId string = ''
 
 // Used for the optional login and document level access control system
-param useAuthentication bool = false
-param enforceAccessControl bool = false
+param useAuthentication bool = true
+param enforceAccessControl bool = true
 // Force using MSAL app authentication instead of built-in App Service authentication
 // https://learn.microsoft.com/azure/app-service/overview-authentication-authorization
-param disableAppServicesAuthentication bool = false
+param disableAppServicesAuthentication bool = true
 param enableGlobalDocuments bool = false
 param enableUnauthenticatedAccess bool = false
 param serverAppId string = ''
@@ -193,10 +199,10 @@ param bypass string = 'AzureServices'
 
 @description('Public network access value for all deployed resources')
 @allowed(['Enabled', 'Disabled'])
-param publicNetworkAccess string = 'Enabled'
+param publicNetworkAccess string = 'Disabled'
 
 @description('Add a private endpoints for network connectivity')
-param usePrivateEndpoint bool = false
+param usePrivateEndpoint bool = true
 
 @description('Id of the user or app to assign application roles')
 param principalId string = ''
@@ -229,6 +235,9 @@ param useUserUpload bool = false
 param useLocalPdfParser bool = false
 param useLocalHtmlParser bool = false
 
+@description('Enable redaction of PII in the chat history')
+param usePIIRedaction bool = false
+
 var abbrs = loadJsonContent('abbreviations.json')
 var resourceToken = toLower(uniqueString(subscription().id, environmentName, location))
 var tags = { 'azd-env-name': environmentName }
@@ -258,12 +267,18 @@ param containerRegistryName string = deploymentTarget == 'containerapps'
 
 // Configure CORS for allowing different web apps to use the backend
 // For more information please see https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
-var msftAllowedOrigins = [ 'https://portal.azure.com', 'https://ms.portal.azure.com' ]
+var msftAllowedOrigins = ['https://portal.azure.com', 'https://ms.portal.azure.com']
 var loginEndpoint = environment().authentication.loginEndpoint
-var loginEndpointFixed = lastIndexOf(loginEndpoint, '/') == length(loginEndpoint) - 1 ? substring(loginEndpoint, 0, length(loginEndpoint) - 1) : loginEndpoint
-var allMsftAllowedOrigins = !(empty(clientAppId)) ? union(msftAllowedOrigins, [ loginEndpointFixed ]) : msftAllowedOrigins
+var loginEndpointFixed = lastIndexOf(loginEndpoint, '/') == length(loginEndpoint) - 1
+  ? substring(loginEndpoint, 0, length(loginEndpoint) - 1)
+  : loginEndpoint
+var allMsftAllowedOrigins = !(empty(clientAppId)) ? union(msftAllowedOrigins, [loginEndpointFixed]) : msftAllowedOrigins
 // Combine custom origins with Microsoft origins, remove any empty origin strings and remove any duplicate origins
-var allowedOrigins = reduce(filter(union(split(allowedOrigin, ';'), allMsftAllowedOrigins), o => length(trim(o)) > 0), [], (cur, next) => union(cur, [next]))
+var allowedOrigins = reduce(
+  filter(union(split(allowedOrigin, ';'), allMsftAllowedOrigins), o => length(trim(o)) > 0),
+  [],
+  (cur, next) => union(cur, [next])
+)
 
 // Organize resources in a resource group
 resource resourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = {
@@ -302,6 +317,10 @@ resource speechResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' exi
 
 resource cosmosDbResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' existing = if (!empty(cosmodDbResourceGroupName)) {
   name: !empty(cosmodDbResourceGroupName) ? cosmodDbResourceGroupName : resourceGroup.name
+}
+
+resource textAnalyticsResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' existing = if (!empty(textAnalyticsResourceGroupName)) {
+  name: !empty(textAnalyticsResourceGroupName) ? textAnalyticsResourceGroupName : resourceGroup.name
 }
 
 // Monitor application with Azure Monitor
@@ -501,20 +520,24 @@ module acaBackend 'core/host/container-app-upsert.bicep' = if (deploymentTarget 
       // For using managed identity to access Azure resources. See https://github.com/microsoft/azure-container-apps/issues/442
       AZURE_CLIENT_ID: (deploymentTarget == 'containerapps') ? acaIdentity.outputs.clientId : ''
     })
-    secrets: useAuthentication ? {
-      azureclientappsecret: clientAppSecret
-      azureserverappsecret: serverAppSecret
-    } : {}
-    envSecrets: useAuthentication ? [
-      {
-        name: 'AZURE_CLIENT_APP_SECRET'
-        secretRef: 'azureclientappsecret'
-      }
-      {
-        name: 'AZURE_SERVER_APP_SECRET'
-        secretRef: 'azureserverappsecret'
-      }
-    ] : []
+    secrets: useAuthentication
+      ? {
+          azureclientappsecret: clientAppSecret
+          azureserverappsecret: serverAppSecret
+        }
+      : {}
+    envSecrets: useAuthentication
+      ? [
+          {
+            name: 'AZURE_CLIENT_APP_SECRET'
+            secretRef: 'azureclientappsecret'
+          }
+          {
+            name: 'AZURE_SERVER_APP_SECRET'
+            secretRef: 'azureserverappsecret'
+          }
+        ]
+      : []
   }
 }
 
@@ -617,7 +640,7 @@ module documentIntelligence 'br/public:avm/res/cognitive-services/account:0.7.2'
       : '${abbrs.cognitiveServicesDocumentIntelligence}${resourceToken}'
     publicNetworkAccess: publicNetworkAccess
     networkAcls: {
-      defaultAction: 'Allow'
+      defaultAction: 'Deny'
     }
     location: documentIntelligenceResourceGroupLocation
     disableLocalAuth: true
@@ -645,7 +668,6 @@ module computerVision 'br/public:avm/res/cognitive-services/account:0.7.2' = if 
     sku: computerVisionSkuName
   }
 }
-
 
 module contentUnderstanding 'br/public:avm/res/cognitive-services/account:0.7.2' = if (useMediaDescriberAzureCU) {
   name: 'content-understanding'
@@ -675,7 +697,7 @@ module speech 'br/public:avm/res/cognitive-services/account:0.7.2' = if (useSpee
     name: !empty(speechServiceName) ? speechServiceName : '${abbrs.cognitiveServicesSpeech}${resourceToken}'
     kind: 'SpeechServices'
     networkAcls: {
-      defaultAction: 'Allow'
+      defaultAction: 'Deny'
     }
     customSubDomainName: !empty(speechServiceName)
       ? speechServiceName
@@ -685,6 +707,27 @@ module speech 'br/public:avm/res/cognitive-services/account:0.7.2' = if (useSpee
     sku: speechServiceSkuName
   }
 }
+
+module textAnalytics 'br/public:avm/res/cognitive-services/account:0.7.2' = if (usePIIRedaction) {
+  name: 'text-analytics'
+  scope: textAnalyticsResourceGroup
+  params: {
+    name: !empty(textAnalyticsServiceName)
+      ? textAnalyticsServiceName
+      : '${abbrs.cognitiveServicesTextAnalytics}${resourceToken}'
+    kind: 'TextAnalytics'
+    networkAcls: {
+      defaultAction: 'Deny'
+    }
+    customSubDomainName: !empty(textAnalyticsServiceName)
+      ? textAnalyticsServiceName
+      : '${abbrs.cognitiveServicesTextAnalytics}${resourceToken}'
+    location: !empty(textAnalyticsResourceGroupLocation) ? textAnalyticsResourceGroupLocation : location
+    tags: tags
+    sku: textAnalyticsSkuName
+  }
+}
+
 module searchService 'core/search/search-services.bicep' = {
   name: 'search-service'
   scope: searchServiceResourceGroup
@@ -947,6 +990,16 @@ module cosmosDbDataContribRoleUser 'core/security/documentdb-sql-role.bicep' = i
   }
 }
 
+module textAnalyticsRoleUser 'core/security/role.bicep' = if (usePIIRedaction) {
+  scope: textAnalyticsResourceGroup
+  name: 'text-analytics-role-user'
+  params: {
+    principalId: principalId
+    roleDefinitionId: 'f2310ca1-dc64-4889-bb49-c8e0fa3d47a8'
+    principalType: principalType
+  }
+}
+
 // SYSTEM IDENTITIES
 module openAiRoleBackend 'core/security/role.bicep' = if (isAzureOpenAiHost && deployAzureOpenAi) {
   scope: openAiResourceGroup
@@ -1194,7 +1247,9 @@ output AZURE_SPEECH_SERVICE_ID string = useSpeechOutputAzure ? speech.outputs.re
 output AZURE_SPEECH_SERVICE_LOCATION string = useSpeechOutputAzure ? speech.outputs.location : ''
 
 output AZURE_VISION_ENDPOINT string = useGPT4V ? computerVision.outputs.endpoint : ''
-output AZURE_CONTENTUNDERSTANDING_ENDPOINT string = useMediaDescriberAzureCU ? contentUnderstanding.outputs.endpoint : ''
+output AZURE_CONTENTUNDERSTANDING_ENDPOINT string = useMediaDescriberAzureCU
+  ? contentUnderstanding.outputs.endpoint
+  : ''
 
 output AZURE_DOCUMENTINTELLIGENCE_SERVICE string = documentIntelligence.outputs.name
 output AZURE_DOCUMENTINTELLIGENCE_RESOURCE_GROUP string = documentIntelligenceResourceGroup.name
