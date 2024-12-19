@@ -58,6 +58,11 @@ param tokenStorageContainerName string = 'tokens'
 
 param appServiceSkuName string // Set in main.parameters.json
 
+param keyVaultName string = '' // Set in main.parameters.json
+param keyVaultResourceGroupName string = '' // Set in main.parameters.json
+param keyVaultLocation string = location
+param keyVaultSkuName string // Set in main.parameters.json
+
 @allowed(['azure', 'openai', 'azure_custom'])
 param openAiHost string // Set in main.parameters.json
 param isAzureOpenAiHost bool = startsWith(openAiHost, 'azure')
@@ -347,6 +352,22 @@ resource apimResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' exist
   name: !empty(apimResourceGroupName) ? apimResourceGroupName : resourceGroup.name
 }
 
+module vault 'br/public:avm/res/key-vault/vault:0.11.0' = {
+  name: 'vault'
+  scope: resourceGroup
+  params: {
+    name: !empty(keyVaultName) ? keyVaultName : '${abbrs.keyVaultVaults}${resourceToken}'
+    enablePurgeProtection: false
+    enableRbacAuthorization: true
+    location: keyVaultLocation
+    networkAcls: {
+      bypass: bypass
+      defaultAction: 'Deny'
+    }
+    publicNetworkAccess: publicNetworkAccess
+  }
+}
+
 // Monitor application with Azure Monitor
 module monitoring 'core/monitor/monitoring.bicep' = if (useApplicationInsights) {
   name: 'monitoring'
@@ -627,6 +648,10 @@ var openAiDeployments = concat(
     : []
 )
 
+var textAnalyticsServiceNameComputed = !empty(textAnalyticsServiceName)
+  ? textAnalyticsServiceName
+  : '${abbrs.cognitiveServicesTextAnalytics}${resourceToken}'
+
 module openAi 'br/public:avm/res/cognitive-services/account:0.7.2' = if (isAzureOpenAiHost && deployAzureOpenAi) {
   name: 'openai'
   scope: openAiResourceGroup
@@ -736,9 +761,7 @@ module textAnalytics 'br/public:avm/res/cognitive-services/account:0.7.2' = if (
   name: 'text-analytics'
   scope: textAnalyticsResourceGroup
   params: {
-    name: !empty(textAnalyticsServiceName)
-      ? textAnalyticsServiceName
-      : '${abbrs.cognitiveServicesTextAnalytics}${resourceToken}'
+    name: textAnalyticsServiceNameComputed
     kind: 'TextAnalytics'
     networkAcls: {
       defaultAction: 'Deny'
@@ -749,6 +772,11 @@ module textAnalytics 'br/public:avm/res/cognitive-services/account:0.7.2' = if (
     location: !empty(textAnalyticsResourceGroupLocation) ? textAnalyticsResourceGroupLocation : location
     tags: tags
     sku: textAnalyticsSkuName
+    secretsExportConfiguration: {
+      keyVaultResourceId: vault.outputs.resourceId
+      accessKey1Name: '${textAnalyticsServiceNameComputed}-key1'
+      accessKey2Name: '${textAnalyticsServiceNameComputed}-key2'
+    }
   }
 }
 
@@ -961,6 +989,9 @@ module apim 'br/public:avm/res/api-management/service:0.6.0' = {
     name: !empty(apimServiceName) ? apimServiceName : '${abbrs.apiManagementService}${resourceToken}'
     publisherEmail: 'apimgmt-noreply@mail.windowsazure.com'
     publisherName: 'apimgmt-noreply'
+    managedIdentities: {
+      systemAssigned: true
+    }
     // Non-required parameters
     location: apimLocation
     sku: apimSkuName
@@ -972,6 +1003,21 @@ module apim 'br/public:avm/res/api-management/service:0.6.0' = {
         name: 'aiLoggerInstrumentationKey'
         secret: true
         value: monitoring.outputs.applicationInsightsInstrumentationKey
+      }
+      {
+        displayName: 'languageServiceUri'
+        name: 'languageServiceUri'
+        secret: false
+        value: textAnalytics.outputs.endpoint
+      }
+      {
+        displayName: 'languageServiceApiKey'
+        name: 'languageServiceApiKey'
+        secret: true
+        keyVault: {
+          identityClientId: null // Use the default identity
+          secretIdentifier: textAnalytics.outputs.exportedSecrets['${textAnalyticsServiceNameComputed}-key1']
+        }
       }
     ]
     apis: [
@@ -1045,6 +1091,11 @@ var otherPrivateEndpointConnections = (usePrivateEndpoint && deploymentTarget ==
         groupId: 'sql'
         dnsZoneName: 'privatelink.documents.azure.com'
         resourceIds: (useAuthentication && useChatHistoryCosmos) ? [cosmosDb.outputs.resourceId] : []
+      }
+      {
+        groupId: 'vault'
+        dnsZoneName: 'privatelink${environmentData.suffixes.keyvaultDns}'
+        resourceIds: [vault.outputs.resourceId]
       }
     ]
   : []
@@ -1191,6 +1242,16 @@ module textAnalyticsRoleUser 'core/security/role.bicep' = if (usePiiRedaction) {
   params: {
     principalId: principalId
     roleDefinitionId: 'f2310ca1-dc64-4889-bb49-c8e0fa3d47a8'
+    principalType: principalType
+  }
+}
+
+module keyVaultRoleUser 'core/security/role.bicep' = {
+  scope: resourceGroup
+  name: 'keyvault-role-user'
+  params: {
+    principalId: principalId
+    roleDefinitionId: '4633458b-17de-408a-b874-0445c86b69e6'
     principalType: principalType
   }
 }
@@ -1344,6 +1405,28 @@ module documentIntelligenceRoleBackend 'core/security/role.bicep' = if (useUserU
       ? backend.outputs.identityPrincipalId
       : acaBackend.outputs.identityPrincipalId
     roleDefinitionId: 'a97b65f3-24c7-4388-baec-2e87135dc908'
+    principalType: 'ServicePrincipal'
+  }
+}
+
+module keyVaultRoleBackend 'core/security/role.bicep' = {
+  scope: resourceGroup
+  name: 'keyvault-role-backend'
+  params: {
+    principalId: (deploymentTarget == 'appservice')
+      ? backend.outputs.identityPrincipalId
+      : acaBackend.outputs.identityPrincipalId
+    roleDefinitionId: '4633458b-17de-408a-b874-0445c86b69e6'
+    principalType: 'ServicePrincipal'
+  }
+}
+
+module keyVaultRoleApim 'core/security/role.bicep' = {
+  scope: resourceGroup
+  name: 'keyvault-role-apim'
+  params: {
+    principalId: apim.outputs.systemAssignedMIPrincipalId
+    roleDefinitionId: '4633458b-17de-408a-b874-0445c86b69e6'
     principalType: 'ServicePrincipal'
   }
 }
