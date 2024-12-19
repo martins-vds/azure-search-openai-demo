@@ -1066,6 +1066,12 @@ module apim 'br/public:avm/res/api-management/service:0.6.0' = {
     subnetResourceId: isolation.outputs.apimSubnetId
     namedValues: [
       {
+        displayName: 'userManagedIdentityClientId'
+        name: 'userManagedIdentityClientId'
+        secret: true
+        value: apimIdentity.outputs.clientId
+      }
+      {
         displayName: 'aiLoggerInstrumentationKey'
         name: 'aiLoggerInstrumentationKey'
         secret: true
