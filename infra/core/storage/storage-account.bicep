@@ -25,10 +25,12 @@ param publicNetworkAccess string = 'Enabled'
 param sku object = { name: 'Standard_LRS' }
 @allowed([ 'None', 'AzureServices' ])
 param bypass string = 'AzureServices'
+param ipRules array = []
 
 var networkAcls = (publicNetworkAccess == 'Enabled') ? {
   bypass: bypass
   defaultAction: 'Allow'
+  ipRules: ipRules
 } : { defaultAction: 'Deny' }
 
 resource storage 'Microsoft.Storage/storageAccounts@2022-05-01' = {
@@ -59,7 +61,7 @@ resource storage 'Microsoft.Storage/storageAccounts@2022-05-01' = {
     resource container 'containers' = [for container in containers: {
       name: container.name
       properties: {
-        publicAccess: contains(container, 'publicAccess') ? container.publicAccess : 'None'
+        publicAccess: container.?publicAccess ?? 'None'
       }
     }]
   }

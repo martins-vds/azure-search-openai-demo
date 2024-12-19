@@ -232,6 +232,18 @@ param bypass string = 'AzureServices'
 @allowed(['Enabled', 'Disabled'])
 param publicNetworkAccess string = 'Disabled'
 
+param allowedIps string = ''
+var ipRules = reduce(
+  filter(array(split(allowedIps, ';')), o => length(trim(o)) > 0),
+  [],
+  (cur, next) =>
+    union(cur, [
+      {
+        value: next
+      }
+    ])
+)
+
 @description('Add a private endpoints for network connectivity')
 param usePrivateEndpoint bool = true
 
@@ -374,13 +386,14 @@ module vault 'br/public:avm/res/key-vault/vault:0.11.0' = {
     networkAcls: {
       bypass: bypass
       defaultAction: 'Deny'
+      ipRules: ipRules
       virtualNetworkRules: [
         {
           id: isolation.outputs.apimSubnetId
         }
       ]
-    }    
-    publicNetworkAccess: 'Enabled'
+    }
+    publicNetworkAccess: empty(ipRules) ? publicNetworkAccess : 'Enabled'
   }
 }
 
@@ -516,6 +529,7 @@ module backend 'core/host/appservice.bicep' = if (deploymentTarget == 'appservic
     scmDoBuildDuringDeployment: true
     managedIdentity: true
     virtualNetworkSubnetId: isolation.outputs.appSubnetId
+    keyVaultName: vault.outputs.name
     publicNetworkAccess: publicNetworkAccess
     allowedOrigins: allowedOrigins
     clientAppId: clientAppId
@@ -679,10 +693,11 @@ module openAi 'br/public:avm/res/cognitive-services/account:0.7.2' = if (isAzure
     customSubDomainName: !empty(openAiServiceName)
       ? openAiServiceName
       : '${abbrs.cognitiveServicesAccounts}${resourceToken}'
-    publicNetworkAccess: publicNetworkAccess
+    publicNetworkAccess: empty(ipRules) ? publicNetworkAccess : 'Enabled'
     networkAcls: {
-      defaultAction: 'Allow'
+      defaultAction: 'Deny'
       bypass: bypass
+      ipRules: ipRules
     }
     sku: openAiSkuName
     deployments: openAiDeployments
@@ -703,9 +718,11 @@ module documentIntelligence 'br/public:avm/res/cognitive-services/account:0.7.2'
     customSubDomainName: !empty(documentIntelligenceServiceName)
       ? documentIntelligenceServiceName
       : '${abbrs.cognitiveServicesDocumentIntelligence}${resourceToken}'
-    publicNetworkAccess: publicNetworkAccess
+    publicNetworkAccess: empty(ipRules) ? publicNetworkAccess : 'Enabled'
     networkAcls: {
       defaultAction: 'Deny'
+      bypass: bypass
+      ipRules: ipRules
     }
     location: documentIntelligenceResourceGroupLocation
     disableLocalAuth: true
@@ -722,8 +739,11 @@ module computerVision 'br/public:avm/res/cognitive-services/account:0.7.2' = if 
       ? computerVisionServiceName
       : '${abbrs.cognitiveServicesComputerVision}${resourceToken}'
     kind: 'ComputerVision'
+    publicNetworkAccess: empty(ipRules) ? publicNetworkAccess : 'Enabled'
     networkAcls: {
-      defaultAction: 'Allow'
+      defaultAction: 'Deny'
+      bypass: bypass
+      ipRules: ipRules
     }
     customSubDomainName: !empty(computerVisionServiceName)
       ? computerVisionServiceName
@@ -742,8 +762,11 @@ module contentUnderstanding 'br/public:avm/res/cognitive-services/account:0.7.2'
       ? contentUnderstandingServiceName
       : '${abbrs.cognitiveServicesContentUnderstanding}${resourceToken}'
     kind: 'AIServices'
+    publicNetworkAccess: empty(ipRules) ? publicNetworkAccess : 'Enabled'
     networkAcls: {
-      defaultAction: 'Allow'
+      defaultAction: 'Deny'
+      bypass: bypass
+      ipRules: ipRules
     }
     customSubDomainName: !empty(contentUnderstandingServiceName)
       ? contentUnderstandingServiceName
@@ -761,8 +784,11 @@ module speech 'br/public:avm/res/cognitive-services/account:0.7.2' = if (useSpee
   params: {
     name: !empty(speechServiceName) ? speechServiceName : '${abbrs.cognitiveServicesSpeech}${resourceToken}'
     kind: 'SpeechServices'
+    publicNetworkAccess: empty(ipRules) ? publicNetworkAccess : 'Enabled'
     networkAcls: {
       defaultAction: 'Deny'
+      bypass: bypass
+      ipRules: ipRules
     }
     customSubDomainName: !empty(speechServiceName)
       ? speechServiceName
@@ -779,8 +805,11 @@ module textAnalytics 'br/public:avm/res/cognitive-services/account:0.7.2' = if (
   params: {
     name: textAnalyticsServiceNameComputed
     kind: 'TextAnalytics'
+    publicNetworkAccess: empty(ipRules) ? publicNetworkAccess : 'Enabled'
     networkAcls: {
       defaultAction: 'Deny'
+      bypass: bypass
+      ipRules: ipRules
     }
     customSubDomainName: !empty(textAnalyticsServiceName)
       ? textAnalyticsServiceName
@@ -788,6 +817,7 @@ module textAnalytics 'br/public:avm/res/cognitive-services/account:0.7.2' = if (
     location: !empty(textAnalyticsResourceGroupLocation) ? textAnalyticsResourceGroupLocation : location
     tags: tags
     sku: textAnalyticsSkuName
+    disableLocalAuth: false
     secretsExportConfiguration: {
       keyVaultResourceId: vault.outputs.resourceId
       accessKey1Name: '${textAnalyticsServiceNameComputed}-key1'
@@ -807,10 +837,9 @@ module searchService 'core/search/search-services.bicep' = {
     sku: {
       name: searchServiceSkuName
     }
+    ipRules: ipRules
     semanticSearch: actualSearchServiceSemanticRankerLevel
-    publicNetworkAccess: publicNetworkAccess == 'Enabled'
-      ? 'enabled'
-      : (publicNetworkAccess == 'Disabled' ? 'disabled' : null)
+    publicNetworkAccess: empty(ipRules) ? publicNetworkAccess : 'Enabled'
     sharedPrivateLinkStorageAccounts: usePrivateEndpoint ? [storage.outputs.id] : []
   }
 }
@@ -831,8 +860,9 @@ module storage 'core/storage/storage-account.bicep' = {
     name: !empty(storageAccountName) ? storageAccountName : '${abbrs.storageStorageAccounts}${resourceToken}'
     location: storageResourceGroupLocation
     tags: tags
-    publicNetworkAccess: publicNetworkAccess
+    publicNetworkAccess: empty(ipRules) ? publicNetworkAccess : 'Enabled'
     bypass: bypass
+    ipRules: ipRules
     allowBlobPublicAccess: false
     allowSharedKeyAccess: false
     sku: {
@@ -864,7 +894,7 @@ module userStorage 'core/storage/storage-account.bicep' = if (useUserUpload) {
       : 'user${abbrs.storageStorageAccounts}${resourceToken}'
     location: storageResourceGroupLocation
     tags: tags
-    publicNetworkAccess: publicNetworkAccess
+    publicNetworkAccess: empty(ipRules) ? publicNetworkAccess : 'Enabled'
     bypass: bypass
     allowBlobPublicAccess: false
     allowSharedKeyAccess: false
@@ -897,9 +927,9 @@ module cosmosDb 'br/public:avm/res/document-db/database-account:0.6.1' = if (use
     enableFreeTier: cosmosDbSkuName == 'free'
     capabilitiesToAdd: cosmosDbSkuName == 'serverless' ? ['EnableServerless'] : []
     networkRestrictions: {
-      ipRules: []
+      ipRules: ipRules
       networkAclBypass: bypass
-      publicNetworkAccess: publicNetworkAccess
+      publicNetworkAccess: empty(ipRules) ? publicNetworkAccess : 'Enabled'
       virtualNetworkRules: []
     }
     sqlDatabases: [

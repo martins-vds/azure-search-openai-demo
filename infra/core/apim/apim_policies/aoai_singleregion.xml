@@ -2,7 +2,7 @@
     <inbound>
         <base />
         <choose>
-            <when condition="@(context.Operation.Name.Equals("ChatCompletions_Create"))">
+            <when condition="@(context.Operation.UrlTemplate.Equals("/deployments/{deployment-id}/chat/completions?api-version={api-version}"))">
                 <set-variable name="unredactedBody" value="@(context.Request.Body.As<JObject>())" />
                 <set-variable name="piiRequest" value="@{           
                     JObject unredactedRequest = (JObject) context.Variables["unredactedBody"];

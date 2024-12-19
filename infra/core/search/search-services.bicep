@@ -18,10 +18,11 @@ param encryptionWithCmk object = {
 ])
 param hostingMode string = 'default'
 @allowed([
-  'enabled'
-  'disabled'
+  'Enabled'
+  'Disabled'
 ])
-param publicNetworkAccess string = 'enabled'
+param publicNetworkAccess string = 'Enabled'
+param ipRules array = []
 param partitionCount int = 1
 param replicaCount int = 1
 @allowed([
@@ -49,7 +50,10 @@ resource search 'Microsoft.Search/searchServices@2023-11-01' = {
     encryptionWithCmk: encryptionWithCmk
     hostingMode: hostingMode
     partitionCount: partitionCount
-    publicNetworkAccess: publicNetworkAccess
+    publicNetworkAccess: toLower(publicNetworkAccess)
+    networkRuleSet: {
+      ipRules: ipRules
+    }
     replicaCount: replicaCount
     semanticSearch: semanticSearch
   }

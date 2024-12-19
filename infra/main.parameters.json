@@ -95,64 +95,64 @@
     "backendServiceName": {
       "value": "${AZURE_APP_SERVICE}"
     },
-    "chatGptModelName":{
+    "chatGptModelName": {
       "value": "${AZURE_OPENAI_CHATGPT_MODEL}"
     },
     "chatGptDeploymentName": {
       "value": "${AZURE_OPENAI_CHATGPT_DEPLOYMENT}"
     },
-    "chatGptDeploymentVersion":{
+    "chatGptDeploymentVersion": {
       "value": "${AZURE_OPENAI_CHATGPT_DEPLOYMENT_VERSION}"
     },
-    "chatGptDeploymentSkuName":{
+    "chatGptDeploymentSkuName": {
       "value": "${AZURE_OPENAI_CHATGPT_DEPLOYMENT_SKU}"
     },
-    "chatGptDeploymentCapacity":{
+    "chatGptDeploymentCapacity": {
       "value": "${AZURE_OPENAI_CHATGPT_DEPLOYMENT_CAPACITY}"
     },
-    "embeddingModelName":{
+    "embeddingModelName": {
       "value": "${AZURE_OPENAI_EMB_MODEL_NAME}"
     },
     "embeddingDeploymentName": {
       "value": "${AZURE_OPENAI_EMB_DEPLOYMENT}"
     },
-    "embeddingDeploymentVersion":{
+    "embeddingDeploymentVersion": {
       "value": "${AZURE_OPENAI_EMB_DEPLOYMENT_VERSION}"
     },
-    "embeddingDeploymentSkuName":{
+    "embeddingDeploymentSkuName": {
       "value": "${AZURE_OPENAI_EMB_DEPLOYMENT_SKU}"
     },
-    "embeddingDeploymentCapacity":{
+    "embeddingDeploymentCapacity": {
       "value": "${AZURE_OPENAI_EMB_DEPLOYMENT_CAPACITY}"
     },
     "embeddingDimensions": {
       "value": "${AZURE_OPENAI_EMB_DIMENSIONS}"
     },
-    "gpt4vModelName":{
+    "gpt4vModelName": {
       "value": "${AZURE_OPENAI_GPT4V_MODEL}"
     },
     "gpt4vDeploymentName": {
       "value": "${AZURE_OPENAI_GPT4V_DEPLOYMENT}"
     },
-    "gpt4vDeploymentVersion":{
+    "gpt4vDeploymentVersion": {
       "value": "${AZURE_OPENAI_GPT4V_DEPLOYMENT_VERSION}"
     },
-    "gpt4vDeploymentSkuName":{
+    "gpt4vDeploymentSkuName": {
       "value": "${AZURE_OPENAI_GPT4V_DEPLOYMENT_SKU}"
     },
-    "gpt4vDeploymentCapacity":{
+    "gpt4vDeploymentCapacity": {
       "value": "${AZURE_OPENAI_GPT4V_DEPLOYMENT_CAPACITY}"
     },
     "openAiHost": {
       "value": "${OPENAI_HOST=azure}"
     },
-    "azureOpenAiCustomUrl":{
+    "azureOpenAiCustomUrl": {
       "value": "${AZURE_OPENAI_CUSTOM_URL}"
     },
-    "azureOpenAiApiVersion":{
+    "azureOpenAiApiVersion": {
       "value": "${AZURE_OPENAI_API_VERSION}"
     },
-    "azureOpenAiApiKey":{
+    "azureOpenAiApiKey": {
       "value": "${AZURE_OPENAI_API_KEY_OVERRIDE}"
     },
     "openAiApiKey": {
@@ -203,7 +203,7 @@
     "speechServiceResourceGroupName": {
       "value": "${AZURE_SPEECH_SERVICE_RESOURCE_GROUP}"
     },
-    "textAnalyticsServiceName":{ 
+    "textAnalyticsServiceName": {
       "value": "${AZURE_TEXT_ANALYTICS_SERVICE}"
     },
     "textAnalyticsResourceGroupName": {
@@ -284,6 +284,9 @@
     "bypass": {
       "value": "${AZURE_NETWORK_BYPASS=AzureServices}"
     },
+    "allowedIps": {
+      "value": "${AZURE_ALLOWED_IPS}"
+    },
     "useIntegratedVectorization": {
       "value": "${USE_FEATURE_INT_VECTORIZATION}"
     },
@@ -306,7 +309,7 @@
       "value": "${DEPLOYMENT_TARGET=appservice}"
     },
     "webAppExists": {
-        "value": "${SERVICE_WEB_RESOURCE_EXISTS=false}"
+      "value": "${SERVICE_WEB_RESOURCE_EXISTS=false}"
     },
     "azureContainerAppsWorkloadProfile": {
       "value": "${AZURE_CONTAINER_APPS_WORKLOAD_PROFILE=Consumption}"
