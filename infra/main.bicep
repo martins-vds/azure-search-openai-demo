@@ -992,6 +992,25 @@ var policies = [
   }
 ]
 
+module apimIdentity 'core/security/aca-identity.bicep' = {
+  name: 'apim-identity'
+  scope: resourceGroup
+  params: {
+    identityName: '${abbrs.managedIdentityUserAssignedIdentities}${abbrs.apiManagementService}${resourceToken}'
+    location: location
+  }
+}
+
+module keyVaultRoleApim 'core/security/role.bicep' = {
+  scope: resourceGroup
+  name: 'keyvault-role-apim'
+  params: {
+    principalId: apimIdentity.outputs.principalId
+    roleDefinitionId: '4633458b-17de-408a-b874-0445c86b69e6'
+    principalType: 'ServicePrincipal'
+  }
+}
+
 module apim 'br/public:avm/res/api-management/service:0.6.0' = {
   name: 'apim'
   scope: apimResourceGroup
@@ -1001,7 +1020,9 @@ module apim 'br/public:avm/res/api-management/service:0.6.0' = {
     publisherEmail: 'apimgmt-noreply@mail.windowsazure.com'
     publisherName: 'apimgmt-noreply'
     managedIdentities: {
-      systemAssigned: true
+      userAssignedResourceIds: [
+        apimIdentity.outputs.resourceId
+      ]
     }
     // Non-required parameters
     location: apimLocation
@@ -1026,8 +1047,8 @@ module apim 'br/public:avm/res/api-management/service:0.6.0' = {
         name: 'languageServiceApiKey'
         secret: true
         keyVault: {
-          identityClientId: null // Use the default identity
-          secretIdentifier: textAnalytics.outputs.exportedSecrets['${textAnalyticsServiceNameComputed}-key1']
+          identityClientId: apimIdentity.outputs.clientId
+          secretIdentifier: textAnalytics.outputs.exportedSecrets['${textAnalyticsServiceNameComputed}-key1'].secretUri
         }
       }
     ]
@@ -1049,6 +1070,10 @@ module apim 'br/public:avm/res/api-management/service:0.6.0' = {
     ]
     policies: policies
   }
+
+  dependsOn: [
+    keyVaultRoleApim
+  ]
 }
 
 module isolation 'network-isolation.bicep' = {
@@ -1427,16 +1452,6 @@ module keyVaultRoleBackend 'core/security/role.bicep' = {
     principalId: (deploymentTarget == 'appservice')
       ? backend.outputs.identityPrincipalId
       : acaBackend.outputs.identityPrincipalId
-    roleDefinitionId: '4633458b-17de-408a-b874-0445c86b69e6'
-    principalType: 'ServicePrincipal'
-  }
-}
-
-module keyVaultRoleApim 'core/security/role.bicep' = {
-  scope: resourceGroup
-  name: 'keyvault-role-apim'
-  params: {
-    principalId: apim.outputs.systemAssignedMIPrincipalId
     roleDefinitionId: '4633458b-17de-408a-b874-0445c86b69e6'
     principalType: 'ServicePrincipal'
   }
