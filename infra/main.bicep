@@ -1492,6 +1492,16 @@ module keyVaultRoleBackend 'core/security/role.bicep' = {
   }
 }
 
+module textAnalyticsRoleApim 'core/security/role.bicep' = if (usePiiRedaction) {
+  scope: textAnalyticsResourceGroup
+  name: 'text-analytics-role-apim'
+  params: {
+    principalId: apimIdentity.outputs.principalId
+    roleDefinitionId: 'f2310ca1-dc64-4889-bb49-c8e0fa3d47a8'
+    principalType: 'ServicePrincipal'
+  }
+}
+
 output AZURE_LOCATION string = location
 output AZURE_TENANT_ID string = tenantId
 output AZURE_AUTH_TENANT_ID string = authTenantId
