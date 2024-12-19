@@ -417,7 +417,7 @@ module monitoring 'core/monitor/monitoring.bicep' = if (useApplicationInsights) 
 }
 
 module applicationInsightsDashboard 'backend-dashboard.bicep' = if (useApplicationInsights) {
-  name: 'application-insights-dashboard-${deploymentIdentifier}'
+  name: 'app-insights-dashboard-${deploymentIdentifier}'
   scope: resourceGroup
   params: {
     name: !empty(applicationInsightsDashboardName)
