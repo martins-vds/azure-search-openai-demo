@@ -60,8 +60,14 @@ param appServiceSkuName string // Set in main.parameters.json
 
 param keyVaultName string = '' // Set in main.parameters.json
 param keyVaultResourceGroupName string = '' // Set in main.parameters.json
+@metadata({
+  azd: {
+    type: 'location'
+  }
+})
 param keyVaultLocation string = location
-param keyVaultSkuName string // Set in main.parameters.json
+@allowed(['premium', 'standard'])
+param keyVaultSkuName string = 'premium' // Set in main.parameters.json
 
 @allowed(['azure', 'openai', 'azure_custom'])
 param openAiHost string // Set in main.parameters.json
@@ -352,14 +358,19 @@ resource apimResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' exist
   name: !empty(apimResourceGroupName) ? apimResourceGroupName : resourceGroup.name
 }
 
+resource keyVaultResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' existing = if (!empty(keyVaultResourceGroupName)) {
+  name: !empty(keyVaultResourceGroupName) ? keyVaultResourceGroupName : resourceGroup.name
+}
+
 module vault 'br/public:avm/res/key-vault/vault:0.11.0' = {
   name: 'vault'
-  scope: resourceGroup
+  scope: keyVaultResourceGroup
   params: {
     name: !empty(keyVaultName) ? keyVaultName : '${abbrs.keyVaultVaults}${resourceToken}'
     enablePurgeProtection: false
     enableRbacAuthorization: true
     location: keyVaultLocation
+    sku: keyVaultSkuName
     networkAcls: {
       bypass: bypass
       defaultAction: 'Deny'
