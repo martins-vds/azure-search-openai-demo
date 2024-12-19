@@ -374,8 +374,13 @@ module vault 'br/public:avm/res/key-vault/vault:0.11.0' = {
     networkAcls: {
       bypass: bypass
       defaultAction: 'Deny'
-    }
-    publicNetworkAccess: publicNetworkAccess
+      virtualNetworkRules: [
+        {
+          id: isolation.outputs.apimSubnetId
+        }
+      ]
+    }    
+    publicNetworkAccess: 'Enabled'
   }
 }
 
