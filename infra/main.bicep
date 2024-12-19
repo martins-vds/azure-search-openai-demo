@@ -308,6 +308,8 @@ param containerRegistryName string = deploymentTarget == 'containerapps'
   ? '${replace(toLower(environmentName), '-', '')}acr'
   : ''
 
+param deploymentIdentifier string = newGuid() // Used to uniquely identify the deployment
+
 // Configure CORS for allowing different web apps to use the backend
 // For more information please see https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
 var msftAllowedOrigins = ['https://portal.azure.com', 'https://ms.portal.azure.com']
@@ -375,7 +377,7 @@ resource keyVaultResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' e
 }
 
 module vault 'br/public:avm/res/key-vault/vault:0.11.0' = {
-  name: 'vault'
+  name: 'vault-${deploymentIdentifier}'
   scope: keyVaultResourceGroup
   params: {
     name: !empty(keyVaultName) ? keyVaultName : '${abbrs.keyVaultVaults}${resourceToken}'
@@ -399,7 +401,7 @@ module vault 'br/public:avm/res/key-vault/vault:0.11.0' = {
 
 // Monitor application with Azure Monitor
 module monitoring 'core/monitor/monitoring.bicep' = if (useApplicationInsights) {
-  name: 'monitoring'
+  name: 'monitoring-${deploymentIdentifier}'
   scope: resourceGroup
   params: {
     location: location
@@ -415,7 +417,7 @@ module monitoring 'core/monitor/monitoring.bicep' = if (useApplicationInsights) 
 }
 
 module applicationInsightsDashboard 'backend-dashboard.bicep' = if (useApplicationInsights) {
-  name: 'application-insights-dashboard'
+  name: 'application-insights-dashboard-${deploymentIdentifier}'
   scope: resourceGroup
   params: {
     name: !empty(applicationInsightsDashboardName)
@@ -428,7 +430,7 @@ module applicationInsightsDashboard 'backend-dashboard.bicep' = if (useApplicati
 
 // Create an App Service Plan to group applications under the same payment plan and SKU
 module appServicePlan 'core/host/appserviceplan.bicep' = if (deploymentTarget == 'appservice') {
-  name: 'appserviceplan'
+  name: 'appserviceplan-${deploymentIdentifier}'
   scope: resourceGroup
   params: {
     name: !empty(appServicePlanName) ? appServicePlanName : '${abbrs.webServerFarms}${resourceToken}'
@@ -515,7 +517,7 @@ var backendServiceNameComputed = !empty(backendServiceName)
 
 // App Service for the web application (Python Quart app with JS frontend)
 module backend 'core/host/appservice.bicep' = if (deploymentTarget == 'appservice') {
-  name: 'web'
+  name: 'web-${deploymentIdentifier}'
   scope: resourceGroup
   params: {
     name: backendServiceNameComputed
@@ -551,7 +553,7 @@ module backend 'core/host/appservice.bicep' = if (deploymentTarget == 'appservic
 
 // User-assigned identity for pulling images from ACR
 module acaIdentity 'core/security/aca-identity.bicep' = if (deploymentTarget == 'containerapps') {
-  name: 'aca-identity'
+  name: 'aca-identity-${deploymentIdentifier}'
   scope: resourceGroup
   params: {
     identityName: acaIdentityName
@@ -560,7 +562,7 @@ module acaIdentity 'core/security/aca-identity.bicep' = if (deploymentTarget == 
 }
 
 module containerApps 'core/host/container-apps.bicep' = if (deploymentTarget == 'containerapps') {
-  name: 'container-apps'
+  name: 'container-apps-${deploymentIdentifier}'
   scope: resourceGroup
   params: {
     name: 'app'
@@ -575,7 +577,7 @@ module containerApps 'core/host/container-apps.bicep' = if (deploymentTarget == 
 
 // Container Apps for the web application (Python Quart app with JS frontend)
 module acaBackend 'core/host/container-app-upsert.bicep' = if (deploymentTarget == 'containerapps') {
-  name: 'aca-web'
+  name: 'aca-web-${deploymentIdentifier}'
   scope: resourceGroup
   params: {
     name: !empty(backendServiceName) ? backendServiceName : '${abbrs.webSitesContainerApps}backend-${resourceToken}'
@@ -617,7 +619,7 @@ module acaBackend 'core/host/container-app-upsert.bicep' = if (deploymentTarget 
 }
 
 module acaAuth 'core/host/container-apps-auth.bicep' = if (deploymentTarget == 'containerapps' && !empty(clientAppId)) {
-  name: 'aca-auth'
+  name: 'aca-auth-${deploymentIdentifier}'
   scope: resourceGroup
   params: {
     name: acaBackend.outputs.name
@@ -683,7 +685,7 @@ var textAnalyticsServiceNameComputed = !empty(textAnalyticsServiceName)
   : '${abbrs.cognitiveServicesTextAnalytics}${resourceToken}'
 
 module openAi 'br/public:avm/res/cognitive-services/account:0.7.2' = if (isAzureOpenAiHost && deployAzureOpenAi) {
-  name: 'openai'
+  name: 'openai-${deploymentIdentifier}'
   scope: openAiResourceGroup
   params: {
     name: !empty(openAiServiceName) ? openAiServiceName : '${abbrs.cognitiveServicesAccounts}${resourceToken}'
@@ -708,7 +710,7 @@ module openAi 'br/public:avm/res/cognitive-services/account:0.7.2' = if (isAzure
 // Formerly known as Form Recognizer
 // Does not support bypass
 module documentIntelligence 'br/public:avm/res/cognitive-services/account:0.7.2' = {
-  name: 'documentintelligence'
+  name: 'documentintelligence-${deploymentIdentifier}'
   scope: documentIntelligenceResourceGroup
   params: {
     name: !empty(documentIntelligenceServiceName)
@@ -732,7 +734,7 @@ module documentIntelligence 'br/public:avm/res/cognitive-services/account:0.7.2'
 }
 
 module computerVision 'br/public:avm/res/cognitive-services/account:0.7.2' = if (useGPT4V) {
-  name: 'computerVision'
+  name: 'computerVision-${deploymentIdentifier}'
   scope: computerVisionResourceGroup
   params: {
     name: !empty(computerVisionServiceName)
@@ -755,7 +757,7 @@ module computerVision 'br/public:avm/res/cognitive-services/account:0.7.2' = if 
 }
 
 module contentUnderstanding 'br/public:avm/res/cognitive-services/account:0.7.2' = if (useMediaDescriberAzureCU) {
-  name: 'content-understanding'
+  name: 'content-understanding-${deploymentIdentifier}'
   scope: contentUnderstandingResourceGroup
   params: {
     name: !empty(contentUnderstandingServiceName)
@@ -779,7 +781,7 @@ module contentUnderstanding 'br/public:avm/res/cognitive-services/account:0.7.2'
 }
 
 module speech 'br/public:avm/res/cognitive-services/account:0.7.2' = if (useSpeechOutputAzure) {
-  name: 'speech-service'
+  name: 'speech-service-${deploymentIdentifier}'
   scope: speechResourceGroup
   params: {
     name: !empty(speechServiceName) ? speechServiceName : '${abbrs.cognitiveServicesSpeech}${resourceToken}'
@@ -800,7 +802,7 @@ module speech 'br/public:avm/res/cognitive-services/account:0.7.2' = if (useSpee
 }
 
 module textAnalytics 'br/public:avm/res/cognitive-services/account:0.7.2' = if (usePiiRedaction) {
-  name: 'text-analytics'
+  name: 'text-analytics-${deploymentIdentifier}'
   scope: textAnalyticsResourceGroup
   params: {
     name: textAnalyticsServiceNameComputed
@@ -827,7 +829,7 @@ module textAnalytics 'br/public:avm/res/cognitive-services/account:0.7.2' = if (
 }
 
 module searchService 'core/search/search-services.bicep' = {
-  name: 'search-service'
+  name: 'search-service-${deploymentIdentifier}'
   scope: searchServiceResourceGroup
   params: {
     name: !empty(searchServiceName) ? searchServiceName : 'gptkb-${resourceToken}'
@@ -845,7 +847,7 @@ module searchService 'core/search/search-services.bicep' = {
 }
 
 module searchDiagnostics 'core/search/search-diagnostics.bicep' = if (useApplicationInsights) {
-  name: 'search-diagnostics'
+  name: 'search-diagnostics-${deploymentIdentifier}'
   scope: searchServiceResourceGroup
   params: {
     searchServiceName: searchService.outputs.name
@@ -854,7 +856,7 @@ module searchDiagnostics 'core/search/search-diagnostics.bicep' = if (useApplica
 }
 
 module storage 'core/storage/storage-account.bicep' = {
-  name: 'storage'
+  name: 'storage-${deploymentIdentifier}'
   scope: storageResourceGroup
   params: {
     name: !empty(storageAccountName) ? storageAccountName : '${abbrs.storageStorageAccounts}${resourceToken}'
@@ -886,7 +888,7 @@ module storage 'core/storage/storage-account.bicep' = {
 }
 
 module userStorage 'core/storage/storage-account.bicep' = if (useUserUpload) {
-  name: 'user-storage'
+  name: 'user-storage-${deploymentIdentifier}'
   scope: storageResourceGroup
   params: {
     name: !empty(userStorageAccountName)
@@ -912,7 +914,7 @@ module userStorage 'core/storage/storage-account.bicep' = if (useUserUpload) {
 }
 
 module cosmosDb 'br/public:avm/res/document-db/database-account:0.6.1' = if (useAuthentication && useChatHistoryCosmos) {
-  name: 'cosmosdb'
+  name: 'cosmosdb-${deploymentIdentifier}'
   scope: cosmosDbResourceGroup
   params: {
     name: !empty(cosmosDbAccountName) ? cosmosDbAccountName : '${abbrs.documentDBDatabaseAccounts}${resourceToken}'
@@ -1028,7 +1030,7 @@ var policies = [
 ]
 
 module apimIdentity 'core/security/aca-identity.bicep' = {
-  name: 'apim-identity'
+  name: 'apim-identity-${deploymentIdentifier}'
   scope: resourceGroup
   params: {
     identityName: '${abbrs.managedIdentityUserAssignedIdentities}${abbrs.apiManagementService}${resourceToken}'
@@ -1038,7 +1040,7 @@ module apimIdentity 'core/security/aca-identity.bicep' = {
 
 module keyVaultRoleApim 'core/security/role.bicep' = {
   scope: resourceGroup
-  name: 'keyvault-role-apim'
+  name: 'keyvault-role-apim-${deploymentIdentifier}'
   params: {
     principalId: apimIdentity.outputs.principalId
     roleDefinitionId: '4633458b-17de-408a-b874-0445c86b69e6'
@@ -1047,7 +1049,7 @@ module keyVaultRoleApim 'core/security/role.bicep' = {
 }
 
 module apim 'br/public:avm/res/api-management/service:0.6.0' = {
-  name: 'apim'
+  name: 'apim-${deploymentIdentifier}'
   scope: apimResourceGroup
   params: {
     // Required parameters
@@ -1118,7 +1120,7 @@ module apim 'br/public:avm/res/api-management/service:0.6.0' = {
 }
 
 module isolation 'network-isolation.bicep' = {
-  name: 'networks'
+  name: 'networks-${deploymentIdentifier}'
   scope: resourceGroup
   params: {
     deploymentTarget: deploymentTarget
@@ -1180,7 +1182,7 @@ var otherPrivateEndpointConnections = (usePrivateEndpoint && deploymentTarget ==
 var privateEndpointConnections = concat(otherPrivateEndpointConnections, openAiPrivateEndpointConnection)
 
 module privateEndpoints 'private-endpoints.bicep' = if (usePrivateEndpoint && deploymentTarget == 'appservice') {
-  name: 'privateEndpoints'
+  name: 'privateEndpoints-${deploymentIdentifier}'
   scope: resourceGroup
   params: {
     location: location
@@ -1199,7 +1201,7 @@ var principalType = empty(runningOnGh) && empty(runningOnAdo) ? 'User' : 'Servic
 
 module openAiRoleUser 'core/security/role.bicep' = if (isAzureOpenAiHost && deployAzureOpenAi) {
   scope: openAiResourceGroup
-  name: 'openai-role-user'
+  name: 'openai-role-user-${deploymentIdentifier}'
   params: {
     principalId: principalId
     roleDefinitionId: '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
@@ -1210,7 +1212,7 @@ module openAiRoleUser 'core/security/role.bicep' = if (isAzureOpenAiHost && depl
 // For both document intelligence and computer vision
 module cognitiveServicesRoleUser 'core/security/role.bicep' = {
   scope: resourceGroup
-  name: 'cognitiveservices-role-user'
+  name: 'cognitiveservices-role-user-${deploymentIdentifier}'
   params: {
     principalId: principalId
     roleDefinitionId: 'a97b65f3-24c7-4388-baec-2e87135dc908'
@@ -1220,7 +1222,7 @@ module cognitiveServicesRoleUser 'core/security/role.bicep' = {
 
 module speechRoleUser 'core/security/role.bicep' = {
   scope: speechResourceGroup
-  name: 'speech-role-user'
+  name: 'speech-role-user-${deploymentIdentifier}'
   params: {
     principalId: principalId
     roleDefinitionId: 'f2dc8367-1007-4938-bd23-fe263f013447'
@@ -1230,7 +1232,7 @@ module speechRoleUser 'core/security/role.bicep' = {
 
 module storageRoleUser 'core/security/role.bicep' = {
   scope: storageResourceGroup
-  name: 'storage-role-user'
+  name: 'storage-role-user-${deploymentIdentifier}'
   params: {
     principalId: principalId
     roleDefinitionId: '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1'
@@ -1240,7 +1242,7 @@ module storageRoleUser 'core/security/role.bicep' = {
 
 module storageContribRoleUser 'core/security/role.bicep' = {
   scope: storageResourceGroup
-  name: 'storage-contrib-role-user'
+  name: 'storage-contrib-role-user-${deploymentIdentifier}'
   params: {
     principalId: principalId
     roleDefinitionId: 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
@@ -1250,7 +1252,7 @@ module storageContribRoleUser 'core/security/role.bicep' = {
 
 module storageOwnerRoleUser 'core/security/role.bicep' = if (useUserUpload) {
   scope: storageResourceGroup
-  name: 'storage-owner-role-user'
+  name: 'storage-owner-role-user-${deploymentIdentifier}'
   params: {
     principalId: principalId
     roleDefinitionId: 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'
@@ -1260,7 +1262,7 @@ module storageOwnerRoleUser 'core/security/role.bicep' = if (useUserUpload) {
 
 module searchRoleUser 'core/security/role.bicep' = {
   scope: searchServiceResourceGroup
-  name: 'search-role-user'
+  name: 'search-role-user-${deploymentIdentifier}'
   params: {
     principalId: principalId
     roleDefinitionId: '1407120a-92aa-4202-b7e9-c0e197c71c8f'
@@ -1270,7 +1272,7 @@ module searchRoleUser 'core/security/role.bicep' = {
 
 module searchContribRoleUser 'core/security/role.bicep' = {
   scope: searchServiceResourceGroup
-  name: 'search-contrib-role-user'
+  name: 'search-contrib-role-user-${deploymentIdentifier}'
   params: {
     principalId: principalId
     roleDefinitionId: '8ebe5a00-799e-43f5-93ac-243d3dce84a7'
@@ -1280,7 +1282,7 @@ module searchContribRoleUser 'core/security/role.bicep' = {
 
 module searchSvcContribRoleUser 'core/security/role.bicep' = {
   scope: searchServiceResourceGroup
-  name: 'search-svccontrib-role-user'
+  name: 'search-svccontrib-role-user-${deploymentIdentifier}'
   params: {
     principalId: principalId
     roleDefinitionId: '7ca78c08-252a-4471-8644-bb5ff32d4ba0'
@@ -1290,7 +1292,7 @@ module searchSvcContribRoleUser 'core/security/role.bicep' = {
 
 module cosmosDbAccountContribRoleUser 'core/security/role.bicep' = if (useAuthentication && useChatHistoryCosmos) {
   scope: cosmosDbResourceGroup
-  name: 'cosmosdb-account-contrib-role-user'
+  name: 'cosmosdb-account-contrib-role-user-${deploymentIdentifier}'
   params: {
     principalId: principalId
     roleDefinitionId: '5bd9cd88-fe45-4216-938b-f97437e15450'
@@ -1302,7 +1304,7 @@ module cosmosDbAccountContribRoleUser 'core/security/role.bicep' = if (useAuthen
 // https://learn.microsoft.com/azure/cosmos-db/nosql/security/how-to-grant-data-plane-role-based-access
 module cosmosDbDataContribRoleUser 'core/security/documentdb-sql-role.bicep' = if (useAuthentication && useChatHistoryCosmos) {
   scope: cosmosDbResourceGroup
-  name: 'cosmosdb-data-contrib-role-user'
+  name: 'cosmosdb-data-contrib-role-user-${deploymentIdentifier}'
   params: {
     databaseAccountName: (useAuthentication && useChatHistoryCosmos) ? cosmosDb.outputs.name : ''
     principalId: principalId
@@ -1315,7 +1317,7 @@ module cosmosDbDataContribRoleUser 'core/security/documentdb-sql-role.bicep' = i
 
 module textAnalyticsRoleUser 'core/security/role.bicep' = if (usePiiRedaction) {
   scope: textAnalyticsResourceGroup
-  name: 'text-analytics-role-user'
+  name: 'text-analytics-role-user-${deploymentIdentifier}'
   params: {
     principalId: principalId
     roleDefinitionId: 'f2310ca1-dc64-4889-bb49-c8e0fa3d47a8'
@@ -1325,7 +1327,7 @@ module textAnalyticsRoleUser 'core/security/role.bicep' = if (usePiiRedaction) {
 
 module keyVaultRoleUser 'core/security/role.bicep' = {
   scope: resourceGroup
-  name: 'keyvault-role-user'
+  name: 'keyvault-role-user-${deploymentIdentifier}'
   params: {
     principalId: principalId
     roleDefinitionId: '4633458b-17de-408a-b874-0445c86b69e6'
@@ -1336,7 +1338,7 @@ module keyVaultRoleUser 'core/security/role.bicep' = {
 // SYSTEM IDENTITIES
 module openAiRoleBackend 'core/security/role.bicep' = if (isAzureOpenAiHost && deployAzureOpenAi) {
   scope: openAiResourceGroup
-  name: 'openai-role-backend'
+  name: 'openai-role-backend-${deploymentIdentifier}'
   params: {
     principalId: (deploymentTarget == 'appservice')
       ? backend.outputs.identityPrincipalId
@@ -1348,7 +1350,7 @@ module openAiRoleBackend 'core/security/role.bicep' = if (isAzureOpenAiHost && d
 
 module openAiRoleSearchService 'core/security/role.bicep' = if (isAzureOpenAiHost && deployAzureOpenAi && useIntegratedVectorization) {
   scope: openAiResourceGroup
-  name: 'openai-role-searchservice'
+  name: 'openai-role-searchservice-${deploymentIdentifier}'
   params: {
     principalId: searchService.outputs.principalId
     roleDefinitionId: '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
@@ -1358,7 +1360,7 @@ module openAiRoleSearchService 'core/security/role.bicep' = if (isAzureOpenAiHos
 
 module storageRoleBackend 'core/security/role.bicep' = {
   scope: storageResourceGroup
-  name: 'storage-role-backend'
+  name: 'storage-role-backend-${deploymentIdentifier}'
   params: {
     principalId: (deploymentTarget == 'appservice')
       ? backend.outputs.identityPrincipalId
@@ -1370,7 +1372,7 @@ module storageRoleBackend 'core/security/role.bicep' = {
 
 module storageOwnerRoleBackend 'core/security/role.bicep' = if (useUserUpload) {
   scope: storageResourceGroup
-  name: 'storage-owner-role-backend'
+  name: 'storage-owner-role-backend-${deploymentIdentifier}'
   params: {
     principalId: (deploymentTarget == 'appservice')
       ? backend.outputs.identityPrincipalId
@@ -1382,7 +1384,7 @@ module storageOwnerRoleBackend 'core/security/role.bicep' = if (useUserUpload) {
 
 module storageRoleSearchService 'core/security/role.bicep' = if (useIntegratedVectorization) {
   scope: storageResourceGroup
-  name: 'storage-role-searchservice'
+  name: 'storage-role-searchservice-${deploymentIdentifier}'
   params: {
     principalId: searchService.outputs.principalId
     roleDefinitionId: '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1'
@@ -1394,7 +1396,7 @@ module storageRoleSearchService 'core/security/role.bicep' = if (useIntegratedVe
 // https://learn.microsoft.com/azure/search/search-security-rbac
 module searchRoleBackend 'core/security/role.bicep' = {
   scope: searchServiceResourceGroup
-  name: 'search-role-backend'
+  name: 'search-role-backend-${deploymentIdentifier}'
   params: {
     principalId: (deploymentTarget == 'appservice')
       ? backend.outputs.identityPrincipalId
@@ -1406,7 +1408,7 @@ module searchRoleBackend 'core/security/role.bicep' = {
 
 module speechRoleBackend 'core/security/role.bicep' = {
   scope: speechResourceGroup
-  name: 'speech-role-backend'
+  name: 'speech-role-backend-${deploymentIdentifier}'
   params: {
     principalId: (deploymentTarget == 'appservice')
       ? backend.outputs.identityPrincipalId
@@ -1420,7 +1422,7 @@ module speechRoleBackend 'core/security/role.bicep' = {
 // https://learn.microsoft.com/azure/cosmos-db/nosql/security/how-to-grant-data-plane-role-based-access
 module cosmosDbRoleBackend 'core/security/documentdb-sql-role.bicep' = if (useAuthentication && useChatHistoryCosmos) {
   scope: cosmosDbResourceGroup
-  name: 'cosmosdb-role-backend'
+  name: 'cosmosdb-role-backend-${deploymentIdentifier}'
   params: {
     databaseAccountName: (useAuthentication && useChatHistoryCosmos) ? cosmosDb.outputs.name : ''
     principalId: (deploymentTarget == 'appservice')
@@ -1437,7 +1439,7 @@ module cosmosDbRoleBackend 'core/security/documentdb-sql-role.bicep' = if (useAu
 // https://learn.microsoft.com/azure/search/search-security-rbac
 module searchReaderRoleBackend 'core/security/role.bicep' = if (useAuthentication) {
   scope: searchServiceResourceGroup
-  name: 'search-reader-role-backend'
+  name: 'search-reader-role-backend-${deploymentIdentifier}'
   params: {
     principalId: (deploymentTarget == 'appservice')
       ? backend.outputs.identityPrincipalId
@@ -1450,7 +1452,7 @@ module searchReaderRoleBackend 'core/security/role.bicep' = if (useAuthenticatio
 // Used to add/remove documents from index (required for user upload feature)
 module searchContribRoleBackend 'core/security/role.bicep' = if (useUserUpload) {
   scope: searchServiceResourceGroup
-  name: 'search-contrib-role-backend'
+  name: 'search-contrib-role-backend-${deploymentIdentifier}'
   params: {
     principalId: (deploymentTarget == 'appservice')
       ? backend.outputs.identityPrincipalId
@@ -1463,7 +1465,7 @@ module searchContribRoleBackend 'core/security/role.bicep' = if (useUserUpload) 
 // For computer vision access by the backend
 module computerVisionRoleBackend 'core/security/role.bicep' = if (useGPT4V) {
   scope: computerVisionResourceGroup
-  name: 'computervision-role-backend'
+  name: 'computervision-role-backend-${deploymentIdentifier}'
   params: {
     principalId: (deploymentTarget == 'appservice')
       ? backend.outputs.identityPrincipalId
@@ -1476,7 +1478,7 @@ module computerVisionRoleBackend 'core/security/role.bicep' = if (useGPT4V) {
 // For document intelligence access by the backend
 module documentIntelligenceRoleBackend 'core/security/role.bicep' = if (useUserUpload) {
   scope: documentIntelligenceResourceGroup
-  name: 'documentintelligence-role-backend'
+  name: 'documentintelligence-role-backend-${deploymentIdentifier}'
   params: {
     principalId: (deploymentTarget == 'appservice')
       ? backend.outputs.identityPrincipalId
@@ -1488,7 +1490,7 @@ module documentIntelligenceRoleBackend 'core/security/role.bicep' = if (useUserU
 
 module keyVaultRoleBackend 'core/security/role.bicep' = {
   scope: resourceGroup
-  name: 'keyvault-role-backend'
+  name: 'keyvault-role-backend-${deploymentIdentifier}'
   params: {
     principalId: (deploymentTarget == 'appservice')
       ? backend.outputs.identityPrincipalId
@@ -1500,7 +1502,7 @@ module keyVaultRoleBackend 'core/security/role.bicep' = {
 
 module textAnalyticsRoleApim 'core/security/role.bicep' = if (usePiiRedaction) {
   scope: textAnalyticsResourceGroup
-  name: 'text-analytics-role-apim'
+  name: 'text-analytics-role-apim-${deploymentIdentifier}'
   params: {
     principalId: apimIdentity.outputs.principalId
     roleDefinitionId: 'f2310ca1-dc64-4889-bb49-c8e0fa3d47a8'
