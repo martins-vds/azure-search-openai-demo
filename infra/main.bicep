@@ -1108,8 +1108,8 @@ module apim 'br/public:avm/res/api-management/service:0.6.0' = {
         name: 'languageServiceApiKey'
         secret: true
         keyVault: {
-          identityClientId: null // Use the default identity
-          secretIdentifier: textAnalytics.outputs.exportedSecrets['${textAnalyticsServiceNameComputed}-access-key1']
+          identityClientId: apimIdentity.outputs.clientId
+          secretIdentifier: textAnalytics.outputs.exportedSecrets['${textAnalyticsServiceNameComputed}-access-key1'].secretUri
         }
       }
     ]
