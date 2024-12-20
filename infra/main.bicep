@@ -713,6 +713,11 @@ module openAi 'br/public:avm/res/cognitive-services/account:0.7.2' = if (isAzure
       defaultAction: 'Deny'
       bypass: bypass
       ipRules: ipRules
+      virtualNetworkRules: [
+        {
+          id: isolation.outputs.apimSubnetId
+        }
+      ]
     }
     sku: openAiSkuName
     deployments: openAiDeployments
@@ -828,6 +833,11 @@ module textAnalytics 'br/public:avm/res/cognitive-services/account:0.7.2' = if (
       defaultAction: 'Deny'
       bypass: bypass
       ipRules: ipRules
+      virtualNetworkRules: [
+        {
+          id: isolation.outputs.apimSubnetId
+        }
+      ]
     }
     disableLocalAuth: false // Text Analytics does not support JWT tokens for authentication
     customSubDomainName: !empty(textAnalyticsServiceName)
@@ -949,7 +959,7 @@ module cosmosDb 'br/public:avm/res/document-db/database-account:0.6.1' = if (use
     networkRestrictions: {
       ipRules: map(ipRules, ipRule => ipRule.value)
       networkAclBypass: bypass
-      publicNetworkAccess: empty(ipRules) ? publicNetworkAccess : 'Enabled'
+      publicNetworkAccess: empty(ipRules) ? publicNetworkAccess : 'Enabled'      
       virtualNetworkRules: []
     }
     sqlDatabases: [
