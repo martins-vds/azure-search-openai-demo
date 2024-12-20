@@ -818,7 +818,7 @@ module textAnalytics 'br/public:avm/res/cognitive-services/account:0.7.2' = if (
       : '${abbrs.cognitiveServicesTextAnalytics}${resourceToken}'
     location: !empty(textAnalyticsResourceGroupLocation) ? textAnalyticsResourceGroupLocation : location
     tags: tags
-    sku: textAnalyticsSkuName    
+    sku: textAnalyticsSkuName
   }
 }
 
@@ -1079,7 +1079,7 @@ module apim 'br/public:avm/res/api-management/service:0.6.0' = {
         name: 'languageServiceUri'
         secret: false
         value: textAnalytics.outputs.endpoint
-      }      
+      }
     ]
     apis: [
       openAiApi
@@ -1161,6 +1161,11 @@ var otherPrivateEndpointConnections = (usePrivateEndpoint && deploymentTarget ==
         groupId: 'vault'
         dnsZoneName: 'privatelink${environmentData.suffixes.keyvaultDns}'
         resourceIds: [vault.outputs.resourceId]
+      }
+      {
+        groupId: 'account'
+        dnsZoneName: 'privatelink.cognitiveservices.azure.com'
+        resourceIds: [textAnalytics.outputs.resourceId]
       }
     ]
   : []
