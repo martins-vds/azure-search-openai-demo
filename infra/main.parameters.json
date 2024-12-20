@@ -177,19 +177,19 @@
       "value": "${USE_VECTORS=true}"
     },
     "useGPT4V": {
-      "value": "${USE_GPT4V=false}"
+      "value": "${USE_GPT4V=true}"
     },
     "enableLanguagePicker": {
-      "value": "${ENABLE_LANGUAGE_PICKER=false}"
+      "value": "${ENABLE_LANGUAGE_PICKER=true}"
     },
     "useSpeechInputBrowser": {
-      "value": "${USE_SPEECH_INPUT_BROWSER=false}"
+      "value": "${USE_SPEECH_INPUT_BROWSER=true}"
     },
     "useSpeechOutputBrowser": {
-      "value": "${USE_SPEECH_OUTPUT_BROWSER=false}"
+      "value": "${USE_SPEECH_OUTPUT_BROWSER=true}"
     },
     "useSpeechOutputAzure": {
-      "value": "${USE_SPEECH_OUTPUT_AZURE=false}"
+      "value": "${USE_SPEECH_OUTPUT_AZURE=true}"
     },
     "usePiiRedaction": {
       "value": "${USE_PII_REDACTION=true}"
@@ -291,7 +291,7 @@
       "value": "${USE_FEATURE_INT_VECTORIZATION}"
     },
     "useUserUpload": {
-      "value": "${USE_USER_UPLOAD}"
+      "value": "${USE_USER_UPLOAD=true}"
     },
     "useLocalPdfParser": {
       "value": "${USE_LOCAL_PDF_PARSER}"

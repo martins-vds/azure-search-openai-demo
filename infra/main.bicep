@@ -274,7 +274,7 @@ param useIntegratedVectorization bool = false
 param useMediaDescriberAzureCU bool = true
 
 @description('Enable user document upload feature')
-param useUserUpload bool = false
+param useUserUpload bool = false // Set in main.parameters.json
 param useLocalPdfParser bool = false
 param useLocalHtmlParser bool = false
 
