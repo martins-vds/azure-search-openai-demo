@@ -315,7 +315,7 @@
       "value": "${AZURE_CONTAINER_APPS_WORKLOAD_PROFILE=Consumption}"
     },
     "useMediaDescriberAzureCU": {
-      "value": "${USE_MEDIA_DESCRIBER_AZURE_CU=false}"
+      "value": "${USE_MEDIA_DESCRIBER_AZURE_CU=true}"
     }
   }
 }
