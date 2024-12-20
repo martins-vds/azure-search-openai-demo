@@ -403,6 +403,9 @@ module vnet './core/networking/vnet.bicep' = if (usePrivateEndpoint) {
             {
               service: 'Microsoft.AzureActiveDirectory'
             }
+            {
+              service: 'Microsoft.CognitiveServices'
+            }
           ]
         }
       }
