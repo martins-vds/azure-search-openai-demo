@@ -742,6 +742,7 @@ module computerVision 'br/public:avm/res/cognitive-services/account:0.7.2' = if 
       : '${abbrs.cognitiveServicesComputerVision}${resourceToken}'
     kind: 'ComputerVision'
     publicNetworkAccess: empty(ipRules) ? publicNetworkAccess : 'Enabled'
+    disableLocalAuth: true
     networkAcls: {
       defaultAction: 'Deny'
       bypass: bypass
@@ -765,6 +766,7 @@ module contentUnderstanding 'br/public:avm/res/cognitive-services/account:0.7.2'
       : '${abbrs.cognitiveServicesContentUnderstanding}${resourceToken}'
     kind: 'AIServices'
     publicNetworkAccess: empty(ipRules) ? publicNetworkAccess : 'Enabled'
+    disableLocalAuth: true
     networkAcls: {
       defaultAction: 'Deny'
       bypass: bypass
@@ -798,6 +800,7 @@ module speech 'br/public:avm/res/cognitive-services/account:0.7.2' = if (useSpee
     location: !empty(speechServiceLocation) ? speechServiceLocation : location
     tags: tags
     sku: speechServiceSkuName
+    disableLocalAuth: true
   }
 }
 
@@ -813,6 +816,7 @@ module textAnalytics 'br/public:avm/res/cognitive-services/account:0.7.2' = if (
       bypass: bypass
       ipRules: ipRules
     }
+    disableLocalAuth: true
     customSubDomainName: !empty(textAnalyticsServiceName)
       ? textAnalyticsServiceName
       : '${abbrs.cognitiveServicesTextAnalytics}${resourceToken}'
@@ -893,6 +897,7 @@ module userStorage 'core/storage/storage-account.bicep' = if (useUserUpload) {
     tags: tags
     publicNetworkAccess: empty(ipRules) ? publicNetworkAccess : 'Enabled'
     bypass: bypass
+    ipRules: ipRules
     allowBlobPublicAccess: false
     allowSharedKeyAccess: false
     isHnsEnabled: true

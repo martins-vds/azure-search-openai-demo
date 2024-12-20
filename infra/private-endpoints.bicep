@@ -33,7 +33,7 @@ var abbrs = loadJsonContent('abbreviations.json')
 
 // DNS Zones
 module dnsZones './core/networking/private-dns-zones.bicep' = [for privateEndpointConnection in privateEndpointConnections: {
-  name: '${privateEndpointConnection.groupId}-dnszone'
+  name: '${privateEndpointConnection.dnsZoneName}-dnszone'
   params: {
     dnsZoneName: privateEndpointConnection.dnsZoneName
     tags: tags
