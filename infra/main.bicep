@@ -942,7 +942,7 @@ module cosmosDb 'br/public:avm/res/document-db/database-account:0.6.1' = if (use
     enableFreeTier: cosmosDbSkuName == 'free'
     capabilitiesToAdd: cosmosDbSkuName == 'serverless' ? ['EnableServerless'] : []
     networkRestrictions: {
-      ipRules: ipRules
+      ipRules: map(ipRules, ipRule => ipRule.value)
       networkAclBypass: bypass
       publicNetworkAccess: empty(ipRules) ? publicNetworkAccess : 'Enabled'
       virtualNetworkRules: []
@@ -1322,7 +1322,7 @@ module searchSvcContribRoleUser 'core/security/role.bicep' = {
 
 module cosmosDbAccountContribRoleUser 'core/security/role.bicep' = if (useAuthentication && useChatHistoryCosmos) {
   scope: cosmosDbResourceGroup
-  name: 'cosmosdb-account-contrib-role-user-${deploymentIdentifier}'
+  name: take('cosmosdb-account-contrib-role-user-${deploymentIdentifier}', 64)
   params: {
     principalId: principalId
     roleDefinitionId: '5bd9cd88-fe45-4216-938b-f97437e15450'
@@ -1334,7 +1334,7 @@ module cosmosDbAccountContribRoleUser 'core/security/role.bicep' = if (useAuthen
 // https://learn.microsoft.com/azure/cosmos-db/nosql/security/how-to-grant-data-plane-role-based-access
 module cosmosDbDataContribRoleUser 'core/security/documentdb-sql-role.bicep' = if (useAuthentication && useChatHistoryCosmos) {
   scope: cosmosDbResourceGroup
-  name: 'cosmosdb-data-contrib-role-user-${deploymentIdentifier}'
+  name: take('cosmosdb-data-contrib-role-user-${deploymentIdentifier}', 64)
   params: {
     databaseAccountName: (useAuthentication && useChatHistoryCosmos) ? cosmosDb.outputs.name : ''
     principalId: principalId
