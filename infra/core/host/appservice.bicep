@@ -82,6 +82,7 @@ var coreConfig = {
     action: 'Allow'
   })
   ipSecurityRestrictionsDefaultAction: 'Deny'
+  scmIpSecurityRestrictionsUseMain: true
 }
 
 var appServiceProperties = {
@@ -94,6 +95,7 @@ var appServiceProperties = {
   vnetRouteAllEnabled: !empty(virtualNetworkSubnetId)
   vnetImagePullEnabled: !empty(virtualNetworkSubnetId)
   vnetContentShareEnabled: !empty(virtualNetworkSubnetId)
+  vnetBackupRestoreEnabled: !empty(virtualNetworkSubnetId)
   virtualNetworkSubnetId: !empty(virtualNetworkSubnetId) ? virtualNetworkSubnetId : null
   publicNetworkAccess: publicNetworkAccess
 }
