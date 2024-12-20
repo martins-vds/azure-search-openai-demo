@@ -277,8 +277,22 @@ resource appGateway 'Microsoft.Network/applicationGateways@2024-01-01' = {
             httpListener: {
               id: resourceId('Microsoft.Network/applicationGateways/httpListeners', gatewayName, 'port-80-listener')
             }
-            urlPathMap: {
-              id: resourceId('Microsoft.Network/applicationGateways/urlPathMaps', gatewayName, 'http-path-map')
+            backendAddressPool: {
+              id: resourceId('Microsoft.Network/applicationGateways/backendAddressPools', gatewayName, 'webappBackEnd')
+            }
+            backendHttpSettings: {
+              id: resourceId(
+                'Microsoft.Network/applicationGateways/backendHttpSettingsCollection',
+                gatewayName,
+                'webapp-http-setting'
+              )
+            }
+            rewriteRuleSet: {
+              id: resourceId(
+                'Microsoft.Network/applicationGateways/rewriteRuleSets',
+                gatewayName,
+                'easy-auth-rewrite-rule-set'
+              )
             }
           }
         }
@@ -297,8 +311,26 @@ resource appGateway 'Microsoft.Network/applicationGateways@2024-01-01' = {
                     'port-443-listener'
                   )
                 }
-                urlPathMap: {
-                  id: resourceId('Microsoft.Network/applicationGateways/urlPathMaps', gatewayName, 'https-path-map')
+                backendAddressPool: {
+                  id: resourceId(
+                    'Microsoft.Network/applicationGateways/backendAddressPools',
+                    gatewayName,
+                    'webappBackEnd'
+                  )
+                }
+                backendHttpSettings: {
+                  id: resourceId(
+                    'Microsoft.Network/applicationGateways/backendHttpSettingsCollection',
+                    gatewayName,
+                    'webapp-https-setting'
+                  )
+                }
+                rewriteRuleSet: {
+                  id: resourceId(
+                    'Microsoft.Network/applicationGateways/rewriteRuleSets',
+                    gatewayName,
+                    'easy-auth-rewrite-rule-set'
+                  )
                 }
               }
             }
@@ -327,7 +359,6 @@ resource appGateway 'Microsoft.Network/applicationGateways@2024-01-01' = {
               'easy-auth-rewrite-rule-set'
             )
           }
-          pathRules: []
         }
       }
       {
@@ -351,7 +382,6 @@ resource appGateway 'Microsoft.Network/applicationGateways@2024-01-01' = {
               'easy-auth-rewrite-rule-set'
             )
           }
-          pathRules: []
         }
       }
     ]
