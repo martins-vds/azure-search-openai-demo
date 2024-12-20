@@ -31,6 +31,14 @@ param apimSkuName string = 'Developer' // Set in main.parameters.json
 // param apimRateLimitCalls int = 100
 // param apimRateLimitPeriod int = 60
 
+param gatewayName string = ''
+param gatewayAllowedIps array = []
+param gatewayPreventionMode bool = false
+@secure()
+param gatewayBase64EncodedCertificate string = ''
+@secure()
+param gatewayCertificatePassword string = ''
+
 param searchServiceName string = '' // Set in main.parameters.json
 param searchServiceResourceGroupName string = '' // Set in main.parameters.json
 param searchServiceLocation string = '' // Set in main.parameters.json
@@ -324,6 +332,9 @@ var allowedOrigins = reduce(
   [],
   (cur, next) => union(cur, [next])
 )
+
+var isNonProd = environmentName != 'prod'
+var isProd = environmentName == 'prod'
 
 // Organize resources in a resource group
 resource resourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = {
@@ -1108,6 +1119,28 @@ module apim 'br/public:avm/res/api-management/service:0.6.0' = {
   dependsOn: [
     keyVaultRoleApim
   ]
+}
+
+module appGateway 'core/networking/app-gateway.bicep' = {
+  name: 'app-gateway'
+  scope: resourceGroup
+  params: {
+    location: location
+    gatewaySubnetResourceId: isolation.outputs.appGtwSubnetId
+    aiName: monitoring.outputs.applicationInsightsName
+    apimName: apim.outputs.name
+    gatewayName: !empty(gatewayName) ? gatewayName : '${abbrs.networkApplicationGateways}${resourceToken}'
+    tags: tags
+    publicIPName: '${abbrs.networkPublicIPAddresses}${resourceToken}'
+    domainNameLabel: resourceToken
+    frontendAppName: backendServiceNameComputed
+    gatewayBase64EncodedCertificate: gatewayBase64EncodedCertificate
+    gatewayCertificatePassword: gatewayCertificatePassword
+    maxCapacity: isProd ? 5 : 2
+    enableZoneRedundancy: isProd
+    enablePreventionMode: gatewayPreventionMode
+    allowedIps: gatewayAllowedIps
+  }
 }
 
 module isolation 'network-isolation.bicep' = {
