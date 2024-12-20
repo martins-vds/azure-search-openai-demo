@@ -1,5 +1,4 @@
-param apimName string
-param frontendAppName string
+param webAppName string
 param location string
 param publicIPName string
 param aiName string
@@ -187,17 +186,7 @@ resource appGateway 'Microsoft.Network/applicationGateways@2024-01-01' = {
         properties: {
           backendAddresses: [
             {
-              fqdn: '${frontendAppName}.azurewebsites.net'
-            }
-          ]
-        }
-      }
-      {
-        name: 'gatewayBackEnd'
-        properties: {
-          backendAddresses: [
-            {
-              fqdn: '${apimName}.azure-api.net'
+              fqdn: '${webAppName}.azurewebsites.net'
             }
           ]
         }
@@ -210,7 +199,7 @@ resource appGateway 'Microsoft.Network/applicationGateways@2024-01-01' = {
           port: 80
           protocol: 'Http'
           cookieBasedAffinity: 'Disabled'
-          hostName: '${frontendAppName}.azurewebsites.net'
+          hostName: '${webAppName}.azurewebsites.net'
           pickHostNameFromBackendAddress: false
           requestTimeout: 20
           probe: {
@@ -224,39 +213,11 @@ resource appGateway 'Microsoft.Network/applicationGateways@2024-01-01' = {
           port: 443
           protocol: 'Https'
           cookieBasedAffinity: 'Disabled'
-          hostName: '${frontendAppName}.azurewebsites.net'
+          hostName: '${webAppName}.azurewebsites.net'
           pickHostNameFromBackendAddress: false
           requestTimeout: 20
           probe: {
             id: resourceId('Microsoft.Network/applicationGateways/probes', gatewayName, 'webapp-https-probe')
-          }
-        }
-      }
-      {
-        name: 'apim-http-setting'
-        properties: {
-          port: 80
-          protocol: 'Http'
-          cookieBasedAffinity: 'Disabled'
-          hostName: '${apimName}.azure-api.net'
-          pickHostNameFromBackendAddress: false
-          requestTimeout: 120
-          probe: {
-            id: resourceId('Microsoft.Network/applicationGateways/probes', gatewayName, 'apim-http-probe')
-          }
-        }
-      }
-      {
-        name: 'apim-https-setting'
-        properties: {
-          port: 443
-          protocol: 'Https'
-          cookieBasedAffinity: 'Disabled'
-          hostName: '${apimName}.azure-api.net'
-          pickHostNameFromBackendAddress: false
-          requestTimeout: 120
-          probe: {
-            id: resourceId('Microsoft.Network/applicationGateways/probes', gatewayName, 'apim-https-probe')
           }
         }
       }
@@ -366,37 +327,7 @@ resource appGateway 'Microsoft.Network/applicationGateways@2024-01-01' = {
               'easy-auth-rewrite-rule-set'
             )
           }
-          pathRules: [
-            {
-              name: 'apim-http-path-rule'
-              properties: {
-                paths: [
-                  '/api/*'
-                ]
-                backendAddressPool: {
-                  id: resourceId(
-                    'Microsoft.Network/applicationGateways/backendAddressPools',
-                    gatewayName,
-                    'gatewayBackEnd'
-                  )
-                }
-                backendHttpSettings: {
-                  id: resourceId(
-                    'Microsoft.Network/applicationGateways/backendHttpSettingsCollection',
-                    gatewayName,
-                    'apim-http-setting'
-                  )
-                }
-                rewriteRuleSet: {
-                  id: resourceId(
-                    'Microsoft.Network/applicationGateways/rewriteRuleSets',
-                    gatewayName,
-                    'apim-rewrite-rule-set'
-                  )
-                }
-              }
-            }
-          ]
+          pathRules: []
         }
       }
       {
@@ -420,37 +351,7 @@ resource appGateway 'Microsoft.Network/applicationGateways@2024-01-01' = {
               'easy-auth-rewrite-rule-set'
             )
           }
-          pathRules: [
-            {
-              name: 'apim-https-path-rule'
-              properties: {
-                paths: [
-                  '/api/*'
-                ]
-                backendAddressPool: {
-                  id: resourceId(
-                    'Microsoft.Network/applicationGateways/backendAddressPools',
-                    gatewayName,
-                    'gatewayBackEnd'
-                  )
-                }
-                backendHttpSettings: {
-                  id: resourceId(
-                    'Microsoft.Network/applicationGateways/backendHttpSettingsCollection',
-                    gatewayName,
-                    'apim-https-setting'
-                  )
-                }
-                rewriteRuleSet: {
-                  id: resourceId(
-                    'Microsoft.Network/applicationGateways/rewriteRuleSets',
-                    gatewayName,
-                    'apim-rewrite-rule-set'
-                  )
-                }
-              }
-            }
-          ]
+          pathRules: []
         }
       }
     ]
@@ -459,7 +360,7 @@ resource appGateway 'Microsoft.Network/applicationGateways@2024-01-01' = {
         name: 'webapp-http-probe'
         properties: {
           protocol: 'Http'
-          host: '${frontendAppName}.azurewebsites.net'
+          host: '${webAppName}.azurewebsites.net'
           port: 80
           path: '/'
           interval: 30
@@ -479,7 +380,7 @@ resource appGateway 'Microsoft.Network/applicationGateways@2024-01-01' = {
         name: 'webapp-https-probe'
         properties: {
           protocol: 'Https'
-          host: '${frontendAppName}.azurewebsites.net'
+          host: '${webAppName}.azurewebsites.net'
           port: 443
           path: '/'
           interval: 30
@@ -495,63 +396,8 @@ resource appGateway 'Microsoft.Network/applicationGateways@2024-01-01' = {
           }
         }
       }
-      {
-        name: 'apim-http-probe'
-        properties: {
-          protocol: 'Http'
-          host: '${apimName}.azure-api.net'
-          port: 80
-          path: '/status-0123456789abcdef'
-          interval: 30
-          timeout: 120
-          unhealthyThreshold: 8
-          pickHostNameFromBackendHttpSettings: false
-          minServers: 0
-        }
-      }
-      {
-        name: 'apim-https-probe'
-        properties: {
-          protocol: 'Https'
-          host: '${apimName}.azure-api.net'
-          port: 443
-          path: '/status-0123456789abcdef'
-          interval: 30
-          timeout: 120
-          unhealthyThreshold: 8
-          pickHostNameFromBackendHttpSettings: false
-          minServers: 0
-        }
-      }
     ]
     rewriteRuleSets: [
-      {
-        name: 'apim-rewrite-rule-set'
-        properties: {
-          rewriteRules: [
-            {
-              ruleSequence: 100
-              conditions: [
-                {
-                  variable: 'var_uri_path'
-                  pattern: '/api/(.+)'
-                  ignoreCase: true
-                  negate: false
-                }
-              ]
-              name: 'removeApiPath'
-              actionSet: {
-                requestHeaderConfigurations: []
-                responseHeaderConfigurations: []
-                urlConfiguration: {
-                  modifiedPath: '/backend/{var_uri_path_1}'
-                  reroute: false
-                }
-              }
-            }
-          ]
-        }
-      }
       {
         name: 'easy-auth-rewrite-rule-set'
         properties: {

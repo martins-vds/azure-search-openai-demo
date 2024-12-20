@@ -1128,12 +1128,11 @@ module appGateway 'core/networking/app-gateway.bicep' = {
     location: location
     gatewaySubnetResourceId: isolation.outputs.appGtwSubnetId
     aiName: monitoring.outputs.applicationInsightsName
-    apimName: apim.outputs.name
     gatewayName: !empty(gatewayName) ? gatewayName : '${abbrs.networkApplicationGateways}${resourceToken}'
     tags: tags
     publicIPName: '${abbrs.networkPublicIPAddresses}${resourceToken}'
     domainNameLabel: resourceToken
-    frontendAppName: backendServiceNameComputed
+    webAppName: backendServiceNameComputed
     gatewayBase64EncodedCertificate: gatewayBase64EncodedCertificate
     gatewayCertificatePassword: gatewayCertificatePassword
     maxCapacity: isProd ? 5 : 2
