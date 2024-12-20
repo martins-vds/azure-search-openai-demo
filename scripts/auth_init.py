@@ -38,7 +38,7 @@ async def create_application(graph_client: GraphServiceClient, request_app: Appl
 
 async def add_client_secret(graph_client: GraphServiceClient, app_id: str) -> str:
     request_password = AddPasswordPostRequestBody(
-        password_credential=PasswordCredential(display_name="WebAppSecret", startDateTime=datetime.datetime.now(), endDateTime=datetime.datetime.now() + datetime.timedelta(days=30)),                
+        password_credential=PasswordCredential(display_name="WebAppSecret", start_date_time=datetime.datetime.now(), end_date_time=datetime.datetime.now() + datetime.timedelta(days=30)),                
     )
     result = await graph_client.applications.by_application_id(app_id).add_password.post(request_password)
     return result.secret_text
