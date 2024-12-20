@@ -829,13 +829,18 @@ module textAnalytics 'br/public:avm/res/cognitive-services/account:0.7.2' = if (
       bypass: bypass
       ipRules: ipRules
     }
-    disableLocalAuth: true
+    disableLocalAuth: false // Text Analytics does not support JWT tokens for authentication
     customSubDomainName: !empty(textAnalyticsServiceName)
       ? textAnalyticsServiceName
       : '${abbrs.cognitiveServicesTextAnalytics}${resourceToken}'
     location: !empty(textAnalyticsResourceGroupLocation) ? textAnalyticsResourceGroupLocation : location
     tags: tags
     sku: textAnalyticsSkuName
+    secretsExportConfiguration: {
+      keyVaultResourceId: vault.outputs.resourceId
+      accessKey1Name: '${textAnalyticsServiceNameComputed}-access-key1'
+      accessKey2Name: '${textAnalyticsServiceNameComputed}-access-key2'
+    }
   }
 }
 
@@ -1097,6 +1102,15 @@ module apim 'br/public:avm/res/api-management/service:0.6.0' = {
         name: 'languageServiceUri'
         secret: false
         value: textAnalytics.outputs.endpoint
+      }
+      {
+        displayName: 'languageServiceApiKey'
+        name: 'languageServiceApiKey'
+        secret: true
+        keyVault: {
+          identityClientId: null // Use the default identity
+          secretIdentifier: textAnalytics.outputs.exportedSecrets['${textAnalyticsServiceNameComputed}-access-key1']
+        }
       }
     ]
     apis: [
