@@ -336,55 +336,7 @@ resource appGateway 'Microsoft.Network/applicationGateways@2024-01-01' = {
             }
           ]
         : []
-    )
-    urlPathMaps: [
-      {
-        name: 'http-path-map'
-        properties: {
-          defaultBackendAddressPool: {
-            id: resourceId('Microsoft.Network/applicationGateways/backendAddressPools', gatewayName, 'webappBackEnd')
-          }
-          defaultBackendHttpSettings: {
-            id: resourceId(
-              'Microsoft.Network/applicationGateways/backendHttpSettingsCollection',
-              gatewayName,
-              'webapp-http-setting'
-            )
-          }
-          defaultRedirectConfiguration: null
-          defaultRewriteRuleSet: {
-            id: resourceId(
-              'Microsoft.Network/applicationGateways/rewriteRuleSets',
-              gatewayName,
-              'easy-auth-rewrite-rule-set'
-            )
-          }
-        }
-      }
-      {
-        name: 'https-path-map'
-        properties: {
-          defaultBackendAddressPool: {
-            id: resourceId('Microsoft.Network/applicationGateways/backendAddressPools', gatewayName, 'webappBackEnd')
-          }
-          defaultBackendHttpSettings: {
-            id: resourceId(
-              'Microsoft.Network/applicationGateways/backendHttpSettingsCollection',
-              gatewayName,
-              'webapp-https-setting'
-            )
-          }
-          defaultRedirectConfiguration: null
-          defaultRewriteRuleSet: {
-            id: resourceId(
-              'Microsoft.Network/applicationGateways/rewriteRuleSets',
-              gatewayName,
-              'easy-auth-rewrite-rule-set'
-            )
-          }
-        }
-      }
-    ]
+    )    
     probes: [
       {
         name: 'webapp-http-probe'
