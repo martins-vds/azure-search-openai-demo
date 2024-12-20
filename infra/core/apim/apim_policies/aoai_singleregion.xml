@@ -30,16 +30,16 @@
 
                     return redactionRequest.ToString();
                 }" />
-                <send-request mode="new" response-variable-name="redactedResponse" timeout="20" ignore-error="false">
+                <send-request mode="new" response-variable-name="redactedResponse" timeout="20" ignore-error="true">
                     <set-url>{{languageServiceUri}}language/:analyze-text?api-version=2024-11-01</set-url>
-                    <set-method>POST</set-method>                    
+                    <set-method>POST</set-method>
+                    <set-header name="Ocp-Apim-Subscription-Key" exists-action="override">
+                        <value>{{languageServiceApiKey}}</value>
+                    </set-header>
                     <set-header name="Content-Type" exists-action="override">
                         <value>application/json</value>
                     </set-header>
                     <set-body>@((string)context.Variables["piiRequest"])</set-body>
-                    <set-header name="Ocp-Apim-Subscription-Key" exists-action="override">
-                        <value>{{languageServiceApiKey}}</value>
-                    </set-header>
                 </send-request>
                 <!-- Copy this snippet into the outbound section to remove a number of data elements from the response received from the backend service based on the name of the product -->
                 <choose>
