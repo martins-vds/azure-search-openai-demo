@@ -272,7 +272,7 @@ resource appGateway 'Microsoft.Network/applicationGateways@2024-01-01' = {
         {
           name: 'default-http-routing-rule'
           properties: {
-            ruleType: 'PathBasedRouting'
+            ruleType: 'Basic'
             priority: 1
             httpListener: {
               id: resourceId('Microsoft.Network/applicationGateways/httpListeners', gatewayName, 'port-80-listener')
@@ -288,7 +288,7 @@ resource appGateway 'Microsoft.Network/applicationGateways@2024-01-01' = {
             {
               name: 'default-https-routing-rule'
               properties: {
-                ruleType: 'PathBasedRouting'
+                ruleType: 'Basic'
                 priority: 2
                 httpListener: {
                   id: resourceId(
