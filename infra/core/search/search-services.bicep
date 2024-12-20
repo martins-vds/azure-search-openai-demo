@@ -22,6 +22,7 @@ param hostingMode string = 'default'
   'Disabled'
 ])
 param publicNetworkAccess string = 'Enabled'
+param bypass string = 'AzureServices'
 param ipRules array = []
 param partitionCount int = 1
 param replicaCount int = 1
@@ -38,7 +39,7 @@ var searchIdentityProvider = (sku.name == 'free') ? null : {
   type: 'SystemAssigned'
 }
 
-resource search 'Microsoft.Search/searchServices@2023-11-01' = {
+resource search 'Microsoft.Search/searchServices@2024-06-01-preview' = {
   name: name
   location: location
   tags: tags
@@ -53,6 +54,7 @@ resource search 'Microsoft.Search/searchServices@2023-11-01' = {
     publicNetworkAccess: toLower(publicNetworkAccess)
     networkRuleSet: {
       ipRules: ipRules
+      bypass: bypass
     }
     replicaCount: replicaCount
     semanticSearch: semanticSearch

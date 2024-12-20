@@ -6,7 +6,8 @@ param tags object = {}
 @allowed([
   'Cool'
   'Hot'
-  'Premium' ])
+  'Premium'
+])
 param accessTier string = 'Hot'
 param allowBlobPublicAccess bool = true
 param allowCrossTenantReplication bool = true
@@ -14,26 +15,37 @@ param allowSharedKeyAccess bool = true
 param containers array = []
 param defaultToOAuthAuthentication bool = false
 param deleteRetentionPolicy object = {}
-@allowed([ 'AzureDnsZone', 'Standard' ])
+@allowed(['AzureDnsZone', 'Standard'])
 param dnsEndpointType string = 'Standard'
 param isHnsEnabled bool = false
 param kind string = 'StorageV2'
 param minimumTlsVersion string = 'TLS1_2'
 param supportsHttpsTrafficOnly bool = true
-@allowed([ 'Enabled', 'Disabled' ])
+@allowed(['Enabled', 'Disabled'])
 param publicNetworkAccess string = 'Enabled'
 param sku object = { name: 'Standard_LRS' }
-@allowed([ 'None', 'AzureServices' ])
+@allowed(['None', 'AzureServices'])
 param bypass string = 'AzureServices'
-param ipRules array = []
+param virtualNetworkRules array = []
+param ipRules ipRule[] = []
 
-var networkAcls = (publicNetworkAccess == 'Enabled') ? {
-  bypass: bypass
-  defaultAction: 'Allow'
-  ipRules: ipRules
-} : { defaultAction: 'Deny' }
+type ipRule = {
+  value: string
+}
 
-resource storage 'Microsoft.Storage/storageAccounts@2022-05-01' = {
+var networkAcls = (publicNetworkAccess == 'Enabled')
+  ? {
+      bypass: bypass
+      defaultAction: 'Deny'
+      virtualNetworkRules: virtualNetworkRules
+      ipRules: map(ipRules, (ipRule) => {
+        value: ipRule.value
+        action: 'Allow'
+      })
+    }
+  : { defaultAction: 'Deny' }
+
+resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: name
   location: location
   tags: tags
@@ -51,6 +63,9 @@ resource storage 'Microsoft.Storage/storageAccounts@2022-05-01' = {
     networkAcls: networkAcls
     publicNetworkAccess: publicNetworkAccess
     supportsHttpsTrafficOnly: supportsHttpsTrafficOnly
+    routingPreference: {
+      routingChoice: 'MicrosoftRouting'
+    }
   }
 
   resource blobServices 'blobServices' = if (!empty(containers)) {
@@ -58,12 +73,14 @@ resource storage 'Microsoft.Storage/storageAccounts@2022-05-01' = {
     properties: {
       deleteRetentionPolicy: deleteRetentionPolicy
     }
-    resource container 'containers' = [for container in containers: {
-      name: container.name
-      properties: {
-        publicAccess: container.?publicAccess ?? 'None'
+    resource container 'containers' = [
+      for container in containers: {
+        name: container.name
+        properties: {
+          publicAccess: container.?publicAccess ?? 'None'
+        }
       }
-    }]
+    ]
   }
 }
 

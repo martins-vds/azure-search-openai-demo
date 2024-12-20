@@ -177,7 +177,7 @@
       "value": "${USE_VECTORS=true}"
     },
     "useGPT4V": {
-      "value": "${USE_GPT4V=true}"
+      "value": "${USE_GPT4V=false}"
     },
     "enableLanguagePicker": {
       "value": "${ENABLE_LANGUAGE_PICKER=true}"

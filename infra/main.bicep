@@ -818,13 +818,7 @@ module textAnalytics 'br/public:avm/res/cognitive-services/account:0.7.2' = if (
       : '${abbrs.cognitiveServicesTextAnalytics}${resourceToken}'
     location: !empty(textAnalyticsResourceGroupLocation) ? textAnalyticsResourceGroupLocation : location
     tags: tags
-    sku: textAnalyticsSkuName
-    disableLocalAuth: false
-    secretsExportConfiguration: {
-      keyVaultResourceId: vault.outputs.resourceId
-      accessKey1Name: '${textAnalyticsServiceNameComputed}-key1'
-      accessKey2Name: '${textAnalyticsServiceNameComputed}-key2'
-    }
+    sku: textAnalyticsSkuName    
   }
 }
 
@@ -842,6 +836,7 @@ module searchService 'core/search/search-services.bicep' = {
     ipRules: ipRules
     semanticSearch: actualSearchServiceSemanticRankerLevel
     publicNetworkAccess: empty(ipRules) ? publicNetworkAccess : 'Enabled'
+    bypass: bypass
     sharedPrivateLinkStorageAccounts: usePrivateEndpoint ? [storage.outputs.id] : []
   }
 }
@@ -1084,16 +1079,7 @@ module apim 'br/public:avm/res/api-management/service:0.6.0' = {
         name: 'languageServiceUri'
         secret: false
         value: textAnalytics.outputs.endpoint
-      }
-      {
-        displayName: 'languageServiceApiKey'
-        name: 'languageServiceApiKey'
-        secret: true
-        keyVault: {
-          identityClientId: apimIdentity.outputs.clientId
-          secretIdentifier: textAnalytics.outputs.exportedSecrets['${textAnalyticsServiceNameComputed}-key1'].secretUri
-        }
-      }
+      }      
     ]
     apis: [
       openAiApi
@@ -1478,7 +1464,7 @@ module computerVisionRoleBackend 'core/security/role.bicep' = if (useGPT4V) {
 // For document intelligence access by the backend
 module documentIntelligenceRoleBackend 'core/security/role.bicep' = if (useUserUpload) {
   scope: documentIntelligenceResourceGroup
-  name: 'documentintelligence-role-backend-${deploymentIdentifier}'
+  name: take('documentintelligence-role-backend-${deploymentIdentifier}', 64)
   params: {
     principalId: (deploymentTarget == 'appservice')
       ? backend.outputs.identityPrincipalId
