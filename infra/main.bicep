@@ -1122,7 +1122,7 @@ module apim 'br/public:avm/res/api-management/service:0.6.0' = {
 }
 
 module appGateway 'core/networking/app-gateway.bicep' = {
-  name: 'app-gateway'
+  name: 'app-gateway-${deploymentIdentifier}'
   scope: resourceGroup
   params: {
     location: location
