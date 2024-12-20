@@ -12,7 +12,14 @@ param virtualNetworkSubnetId string = ''
 
 // Runtime Properties
 @allowed([
-  'dotnet', 'dotnetcore', 'dotnet-isolated', 'node', 'python', 'java', 'powershell', 'custom'
+  'dotnet'
+  'dotnetcore'
+  'dotnet-isolated'
+  'node'
+  'python'
+  'java'
+  'powershell'
+  'custom'
 ])
 param runtimeName string
 param runtimeNameAndVersion string = '${runtimeName}|${runtimeVersion}'
@@ -45,15 +52,16 @@ param serverAppId string = ''
 @secure()
 param clientSecretSettingName string = ''
 param authenticationIssuerUri string = ''
-@allowed([ 'Enabled', 'Disabled' ])
+@allowed(['Enabled', 'Disabled'])
 param publicNetworkAccess string = 'Enabled'
+param ipRules array = []
 param enableUnauthenticatedAccess bool = false
 param disableAppServicesAuthentication bool = false
 
 // .default must be the 1st scope for On-Behalf-Of-Flow combined consent to work properly
 // Please see https://learn.microsoft.com/entra/identity-platform/v2-oauth2-on-behalf-of-flow#default-and-combined-consent
-var requiredScopes = [ 'api://${serverAppId}/.default', 'openid', 'profile', 'email', 'offline_access' ]
-var requiredAudiences = [ 'api://${serverAppId}' ]
+var requiredScopes = ['api://${serverAppId}/.default', 'openid', 'profile', 'email', 'offline_access']
+var requiredAudiences = ['api://${serverAppId}']
 
 var coreConfig = {
   linuxFxVersion: linuxFxVersion
@@ -69,6 +77,11 @@ var coreConfig = {
   cors: {
     allowedOrigins: allowedOrigins
   }
+  ipSecurityRestrictions: map(ipRules, ipRule => {
+    ipAddress: lastIndexOf(ipRule.?value, '/') == -1 ? '${ipRule.?value}/32' : ipRule.?value
+    action: 'Allow'
+  })
+  ipSecurityRestrictionsDefaultAction: 'Deny'
 }
 
 var appServiceProperties = {
@@ -79,6 +92,8 @@ var appServiceProperties = {
   // Always route traffic through the vnet
   // See https://learn.microsoft.com/azure/app-service/configure-vnet-integration-routing#configure-application-routing
   vnetRouteAllEnabled: !empty(virtualNetworkSubnetId)
+  vnetImagePullEnabled: !empty(virtualNetworkSubnetId)
+  vnetContentShareEnabled: !empty(virtualNetworkSubnetId)
   virtualNetworkSubnetId: !empty(virtualNetworkSubnetId) ? virtualNetworkSubnetId : null
   publicNetworkAccess: publicNetworkAccess
 }
@@ -93,14 +108,18 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
 
   resource configAppSettings 'config' = {
     name: 'appsettings'
-    properties: union(appSettings,
+    properties: union(
+      appSettings,
       {
         SCM_DO_BUILD_DURING_DEPLOYMENT: string(scmDoBuildDuringDeployment)
         ENABLE_ORYX_BUILD: string(enableOryxBuild)
       },
       runtimeName == 'python' ? { PYTHON_ENABLE_GUNICORN_MULTIWORKERS: 'true' } : {},
-      !empty(applicationInsightsName) ? { APPLICATIONINSIGHTS_CONNECTION_STRING: applicationInsights.properties.ConnectionString } : {},
-      !empty(keyVaultName) ? { AZURE_KEY_VAULT_ENDPOINT: keyVault.properties.vaultUri } : {})
+      !empty(applicationInsightsName)
+        ? { APPLICATIONINSIGHTS_CONNECTION_STRING: applicationInsights.properties.ConnectionString }
+        : {},
+      !empty(keyVaultName) ? { AZURE_KEY_VAULT_ENDPOINT: keyVault.properties.vaultUri } : {}
+    )
   }
 
   resource configLogs 'config' = {
@@ -147,7 +166,7 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
             openIdIssuer: authenticationIssuerUri
           }
           login: {
-            loginParameters: [ 'scope=${join(union(requiredScopes, additionalScopes), ' ')}' ]
+            loginParameters: ['scope=${join(union(requiredScopes, additionalScopes), ' ')}']
           }
           validation: {
             allowedAudiences: union(requiredAudiences, additionalAllowedAudiences)

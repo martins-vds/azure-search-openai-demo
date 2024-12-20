@@ -543,7 +543,8 @@ module backend 'core/host/appservice.bicep' = if (deploymentTarget == 'appservic
     managedIdentity: true
     virtualNetworkSubnetId: isolation.outputs.appSubnetId
     keyVaultName: vault.outputs.name
-    publicNetworkAccess: publicNetworkAccess
+    ipRules: ipRules
+    publicNetworkAccess: !empty(ipRules) ? 'Enabled' : publicNetworkAccess
     allowedOrigins: allowedOrigins
     clientAppId: clientAppId
     serverAppId: serverAppId
@@ -557,6 +558,7 @@ module backend 'core/host/appservice.bicep' = if (deploymentTarget == 'appservic
       AZURE_SERVER_APP_SECRET: serverAppSecret
       AZURE_CLIENT_APP_SECRET: clientAppSecret
     })
+    applicationInsightsName: useApplicationInsights ? monitoring.outputs.applicationInsightsName : ''
   }
 }
 
