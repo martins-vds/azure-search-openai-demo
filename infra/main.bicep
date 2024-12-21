@@ -219,7 +219,7 @@ param useAuthentication bool = true
 param enforceAccessControl bool = true
 // Force using MSAL app authentication instead of built-in App Service authentication
 // https://learn.microsoft.com/azure/app-service/overview-authentication-authorization
-param disableAppServicesAuthentication bool = true
+param disableAppServicesAuthentication bool = false
 param enableGlobalDocuments bool = false
 param enableUnauthenticatedAccess bool = false
 param serverAppId string = ''
