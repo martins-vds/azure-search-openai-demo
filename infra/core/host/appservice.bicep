@@ -118,7 +118,19 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
       },
       runtimeName == 'python' ? { PYTHON_ENABLE_GUNICORN_MULTIWORKERS: 'true' } : {},
       !empty(applicationInsightsName)
-        ? { APPLICATIONINSIGHTS_CONNECTION_STRING: applicationInsights.properties.ConnectionString }
+        ? {
+            APPLICATIONINSIGHTS_CONNECTION_STRING: applicationInsights.properties.ConnectionString
+            APPINSIGHTS_INSTRUMENTATIONKEY: applicationInsights.properties.InstrumentationKey
+            APPINSIGHTS_PROFILERFEATURE_VERSION: '1.0.0'
+            APPINSIGHTS_SNAPSHOTFEATURE_VERSION: '1.0.0'
+            ApplicationInsightsAgent_EXTENSION_VERSION: '~3'
+            DiagnosticServices_EXTENSION_VERSION: '~3'
+            InstrumentationEngine_EXTENSION_VERSION: 'disabled'
+            SnapshotDebugger_EXTENSION_VERSION: 'disabled'
+            XDT_MicrosoftApplicationInsights_BaseExtensions: 'disabled'
+            XDT_MicrosoftApplicationInsights_Mode: 'recommended'
+            XDT_MicrosoftApplicationInsights_PreemptSdk: 'disabled'
+          }
         : {},
       !empty(keyVaultName) ? { AZURE_KEY_VAULT_ENDPOINT: keyVault.properties.vaultUri } : {}
     )

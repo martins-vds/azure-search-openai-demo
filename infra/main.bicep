@@ -464,9 +464,6 @@ var appEnvVariables = {
   AZURE_VISION_ENDPOINT: useGPT4V ? computerVision.outputs.endpoint : ''
   AZURE_SEARCH_QUERY_LANGUAGE: searchQueryLanguage
   AZURE_SEARCH_QUERY_SPELLER: searchQuerySpeller
-  APPLICATIONINSIGHTS_CONNECTION_STRING: useApplicationInsights
-    ? monitoring.outputs.applicationInsightsConnectionString
-    : ''
   AZURE_SPEECH_SERVICE_ID: useSpeechOutputAzure ? speech.outputs.resourceId : ''
   AZURE_SPEECH_SERVICE_LOCATION: useSpeechOutputAzure ? speech.outputs.location : ''
   AZURE_SPEECH_SERVICE_VOICE: useSpeechOutputAzure ? speechServiceVoice : ''
