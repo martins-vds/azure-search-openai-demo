@@ -1003,7 +1003,7 @@ var openAiBackends = [
       validateCertificateChain: false
       validateCertificateName: false
     }
-    url: openAi.outputs.endpoint
+    url: '${openAi.outputs.endpoint}/openai'
   }
 ]
 
@@ -1394,6 +1394,16 @@ module openAiRoleBackend 'core/security/role.bicep' = if (isAzureOpenAiHost && d
     principalId: (deploymentTarget == 'appservice')
       ? backend.outputs.identityPrincipalId
       : acaBackend.outputs.identityPrincipalId
+    roleDefinitionId: '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
+    principalType: 'ServicePrincipal'
+  }
+}
+
+module openAiRoleApim 'core/security/role.bicep' = if (isAzureOpenAiHost && deployAzureOpenAi) {
+  scope: openAiResourceGroup
+  name: 'openai-role-apim-${deploymentIdentifier}'
+  params: {
+    principalId: apimIdentity.outputs.principalId
     roleDefinitionId: '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
     principalType: 'ServicePrincipal'
   }

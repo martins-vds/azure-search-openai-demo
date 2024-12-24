@@ -88,6 +88,7 @@
         </choose>
         <set-backend-service backend-id="aoai-primary-backend" />
         <authentication-managed-identity resource="https://cognitiveservices.azure.com" client-id="{{userManagedIdentityClientId}}" />
+        <set-header name="api-key" exists-action="delete" />
     </inbound>
     <backend>
         <base />

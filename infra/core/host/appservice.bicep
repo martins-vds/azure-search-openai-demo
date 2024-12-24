@@ -123,7 +123,7 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
             APPINSIGHTS_INSTRUMENTATIONKEY: applicationInsights.properties.InstrumentationKey
             APPINSIGHTS_PROFILERFEATURE_VERSION: '1.0.0'
             APPINSIGHTS_SNAPSHOTFEATURE_VERSION: '1.0.0'
-            ApplicationInsightsAgent_EXTENSION_VERSION: '~3'
+            ApplicationInsightsAgent_EXTENSION_VERSION: 'disabled'
             DiagnosticServices_EXTENSION_VERSION: '~3'
             InstrumentationEngine_EXTENSION_VERSION: 'disabled'
             SnapshotDebugger_EXTENSION_VERSION: 'disabled'
