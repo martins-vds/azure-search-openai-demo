@@ -88,6 +88,7 @@ var monitorDnsZoneNames = [
 ]
 module monitorDnsZones './core/networking/private-dns-zones.bicep' = [for monitorDnsZoneName in monitorDnsZoneNames: {
   name: '${split(monitorDnsZoneName, '.')[1]}-dnszone'
+  scope: resourceGroup(privateDnsZonesResourceGroup)
   params: {
     dnsZoneName: monitorDnsZoneName
     tags: tags
