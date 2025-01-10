@@ -542,3 +542,4 @@ output backendSubnetId string = backendSubnet.id
 output apimSubnetId string = apimSubnet.id
 output appGtwSubnetId string = appGatewaySubnet.id
 output vnetName string = vnet.name
+output dnsServers string[] = hasCustomDnsServers ? vnet.properties.dhcpOptions.dnsServers : []
