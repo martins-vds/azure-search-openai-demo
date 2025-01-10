@@ -316,6 +316,36 @@
     },
     "useMediaDescriberAzureCU": {
       "value": "${USE_MEDIA_DESCRIBER_AZURE_CU=true}"
+    },
+    "vnetName": {
+      "value": "${VNET_NAME}"
+    },
+    "vnetResourceGroupName": {
+      "value": "${VNET_RESOURCE_GROUP_NAME}"
+    },
+    "vnetAddressRange": {
+      "value": "${VNET_ADDRESS_RANGE='10.0.0.0/16'}"
+    },
+    "vnetSubnetPrefixLength": {
+      "value": "${VNET_SUBNET_PREFIX_LENGTH=24}"
+    },
+    "vnetHasCustomDnsServers": {
+      "value": "${VNET_HAS_CUSTOM_DNS_SERVERS=false}"
+    },
+    "vnetApimRouteTableName": {
+      "value": "${VNET_APIM_ROUTE_TABLE_NAME}"
+    },
+    "vnetAppGatewayRouteTableName": {
+      "value": "${VNET_APP_GATEWAY_ROUTE_TABLE_NAME}"
+    },
+    "privateDnsZonesResourceGroupName": {
+      "value": "${PRIVATE_DNS_ZONES_RESOURCE_GROUP_NAME}"
+    },
+    "useExistingPrivateDnsZones": {
+      "value": "${USE_EXISTING_PRIVATE_DNS_ZONES=false}"
+    },
+    "linkPrivateEndpointToPrivateDnsZone": {
+      "value": "${LINK_PRIVATE_ENDPOINT_TO_PRIVATE_DNS_ZONE=true}"
     }
   }
 }

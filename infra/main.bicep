@@ -1,5 +1,7 @@
 targetScope = 'subscription'
 
+param appName string = 'aoaidemo'
+
 @minLength(1)
 @maxLength(64)
 @allowed(['dev', 'prod'])
@@ -17,6 +19,18 @@ param resourceGroupName string = '' // Set in main.parameters.json
 param applicationInsightsDashboardName string = '' // Set in main.parameters.json
 param applicationInsightsName string = '' // Set in main.parameters.json
 param logAnalyticsName string = '' // Set in main.parameters.json
+
+param vnetName string
+param vnetResourceGroupName string
+param vnetAddressRange string = '10.0.0.0/16'
+param vnetSubnetPrefixLength int = 24
+param vnetHasCustomDnsServers bool = false
+param vnetApimRouteTableName string
+param vnetAppGatewayRouteTableName string
+
+param privateDnsZonesResourceGroupName string = ''
+param useExistingPrivateDnsZones bool = false
+param linkPrivateEndpointToPrivateDnsZone bool = true
 
 param apimServiceName string = '' // Set in main.parameters.json
 param apimResourceGroupName string = '' // Set in main.parameters.json
@@ -290,7 +304,6 @@ param useLocalHtmlParser bool = false
 param usePiiRedaction bool = false
 
 var abbrs = loadJsonContent('abbreviations.json')
-var resourceToken = toLower(uniqueString(subscription().id, environmentName, location))
 var tags = { 'azd-env-name': environmentName }
 
 var tenantIdForAuth = !empty(authTenantId) ? authTenantId : tenantId
@@ -336,55 +349,65 @@ var allowedOrigins = reduce(
 var isNonProd = environmentName != 'prod'
 var isProd = environmentName == 'prod'
 
+var resourceGroupNameComputed = !empty(resourceGroupName)
+  ? resourceGroupName
+  : '${abbrs.resourcesResourceGroups}${environmentName}'
+
+var resourceToken = toLower(uniqueString(subscription().id, resourceGroupNameComputed, environmentName, location))
+
 // Organize resources in a resource group
-resource resourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = {
-  name: !empty(resourceGroupName) ? resourceGroupName : '${abbrs.resourcesResourceGroups}${environmentName}'
+resource mainResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = {
+  name: resourceGroupNameComputed
   location: location
   tags: tags
 }
 
+resource vnetResourceGroup 'Microsoft.Resources/resourceGroups@2024-03-01' existing = if (!empty(vnetResourceGroupName)) {
+  name: !empty(vnetResourceGroupName) ? vnetResourceGroupName : mainResourceGroup.name
+}
+
 resource openAiResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' existing = if (!empty(openAiResourceGroupName)) {
-  name: !empty(openAiResourceGroupName) ? openAiResourceGroupName : resourceGroup.name
+  name: !empty(openAiResourceGroupName) ? openAiResourceGroupName : mainResourceGroup.name
 }
 
 resource documentIntelligenceResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' existing = if (!empty(documentIntelligenceResourceGroupName)) {
-  name: !empty(documentIntelligenceResourceGroupName) ? documentIntelligenceResourceGroupName : resourceGroup.name
+  name: !empty(documentIntelligenceResourceGroupName) ? documentIntelligenceResourceGroupName : mainResourceGroup.name
 }
 
 resource computerVisionResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' existing = if (!empty(computerVisionResourceGroupName)) {
-  name: !empty(computerVisionResourceGroupName) ? computerVisionResourceGroupName : resourceGroup.name
+  name: !empty(computerVisionResourceGroupName) ? computerVisionResourceGroupName : mainResourceGroup.name
 }
 
 resource contentUnderstandingResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' existing = if (!empty(contentUnderstandingResourceGroupName)) {
-  name: !empty(contentUnderstandingResourceGroupName) ? contentUnderstandingResourceGroupName : resourceGroup.name
+  name: !empty(contentUnderstandingResourceGroupName) ? contentUnderstandingResourceGroupName : mainResourceGroup.name
 }
 
 resource searchServiceResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' existing = if (!empty(searchServiceResourceGroupName)) {
-  name: !empty(searchServiceResourceGroupName) ? searchServiceResourceGroupName : resourceGroup.name
+  name: !empty(searchServiceResourceGroupName) ? searchServiceResourceGroupName : mainResourceGroup.name
 }
 
 resource storageResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' existing = if (!empty(storageResourceGroupName)) {
-  name: !empty(storageResourceGroupName) ? storageResourceGroupName : resourceGroup.name
+  name: !empty(storageResourceGroupName) ? storageResourceGroupName : mainResourceGroup.name
 }
 
 resource speechResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' existing = if (!empty(speechServiceResourceGroupName)) {
-  name: !empty(speechServiceResourceGroupName) ? speechServiceResourceGroupName : resourceGroup.name
+  name: !empty(speechServiceResourceGroupName) ? speechServiceResourceGroupName : mainResourceGroup.name
 }
 
 resource cosmosDbResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' existing = if (!empty(cosmodDbResourceGroupName)) {
-  name: !empty(cosmodDbResourceGroupName) ? cosmodDbResourceGroupName : resourceGroup.name
+  name: !empty(cosmodDbResourceGroupName) ? cosmodDbResourceGroupName : mainResourceGroup.name
 }
 
 resource textAnalyticsResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' existing = if (!empty(textAnalyticsResourceGroupName)) {
-  name: !empty(textAnalyticsResourceGroupName) ? textAnalyticsResourceGroupName : resourceGroup.name
+  name: !empty(textAnalyticsResourceGroupName) ? textAnalyticsResourceGroupName : mainResourceGroup.name
 }
 
 resource apimResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' existing = if (!empty(apimResourceGroupName)) {
-  name: !empty(apimResourceGroupName) ? apimResourceGroupName : resourceGroup.name
+  name: !empty(apimResourceGroupName) ? apimResourceGroupName : mainResourceGroup.name
 }
 
 resource keyVaultResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' existing = if (!empty(keyVaultResourceGroupName)) {
-  name: !empty(keyVaultResourceGroupName) ? keyVaultResourceGroupName : resourceGroup.name
+  name: !empty(keyVaultResourceGroupName) ? keyVaultResourceGroupName : mainResourceGroup.name
 }
 
 module vault 'br/public:avm/res/key-vault/vault:0.11.0' = {
@@ -402,7 +425,7 @@ module vault 'br/public:avm/res/key-vault/vault:0.11.0' = {
       ipRules: ipRules
       virtualNetworkRules: [
         {
-          id: isolation.outputs.apimSubnetId
+          id: vnet.outputs.apimSubnetId
         }
       ]
     }
@@ -413,7 +436,7 @@ module vault 'br/public:avm/res/key-vault/vault:0.11.0' = {
 // Monitor application with Azure Monitor
 module monitoring 'core/monitor/monitoring.bicep' = if (useApplicationInsights) {
   name: 'monitoring-${deploymentIdentifier}'
-  scope: resourceGroup
+  scope: mainResourceGroup
   params: {
     location: location
     tags: tags
@@ -429,7 +452,7 @@ module monitoring 'core/monitor/monitoring.bicep' = if (useApplicationInsights) 
 
 module applicationInsightsDashboard 'backend-dashboard.bicep' = if (useApplicationInsights) {
   name: 'app-insights-dashboard-${deploymentIdentifier}'
-  scope: resourceGroup
+  scope: mainResourceGroup
   params: {
     name: !empty(applicationInsightsDashboardName)
       ? applicationInsightsDashboardName
@@ -442,7 +465,7 @@ module applicationInsightsDashboard 'backend-dashboard.bicep' = if (useApplicati
 // Create an App Service Plan to group applications under the same payment plan and SKU
 module appServicePlan 'core/host/appserviceplan.bicep' = if (deploymentTarget == 'appservice') {
   name: 'appserviceplan-${deploymentIdentifier}'
-  scope: resourceGroup
+  scope: mainResourceGroup
   params: {
     name: !empty(appServicePlanName) ? appServicePlanName : '${abbrs.webServerFarms}${resourceToken}'
     location: location
@@ -526,7 +549,7 @@ var backendServiceNameComputed = !empty(backendServiceName)
 // App Service for the web application (Python Quart app with JS frontend)
 module backend 'core/host/appservice.bicep' = if (deploymentTarget == 'appservice') {
   name: 'web-${deploymentIdentifier}'
-  scope: resourceGroup
+  scope: mainResourceGroup
   params: {
     name: backendServiceNameComputed
     location: location
@@ -538,7 +561,7 @@ module backend 'core/host/appservice.bicep' = if (deploymentTarget == 'appservic
     appCommandLine: 'python3 -m gunicorn main:app'
     scmDoBuildDuringDeployment: true
     managedIdentity: true
-    virtualNetworkSubnetId: isolation.outputs.appSubnetId
+    virtualNetworkSubnetId: vnet.outputs.appSubnetId
     keyVaultName: vault.outputs.name
     ipRules: ipRules
     publicNetworkAccess: !empty(ipRules) ? 'Enabled' : publicNetworkAccess
@@ -564,7 +587,7 @@ module backend 'core/host/appservice.bicep' = if (deploymentTarget == 'appservic
 // User-assigned identity for pulling images from ACR
 module acaIdentity 'core/security/aca-identity.bicep' = if (deploymentTarget == 'containerapps') {
   name: 'aca-identity-${deploymentIdentifier}'
-  scope: resourceGroup
+  scope: mainResourceGroup
   params: {
     identityName: acaIdentityName
     location: location
@@ -573,7 +596,7 @@ module acaIdentity 'core/security/aca-identity.bicep' = if (deploymentTarget == 
 
 module containerApps 'core/host/container-apps.bicep' = if (deploymentTarget == 'containerapps') {
   name: 'container-apps-${deploymentIdentifier}'
-  scope: resourceGroup
+  scope: mainResourceGroup
   params: {
     name: 'app'
     tags: tags
@@ -588,7 +611,7 @@ module containerApps 'core/host/container-apps.bicep' = if (deploymentTarget == 
 // Container Apps for the web application (Python Quart app with JS frontend)
 module acaBackend 'core/host/container-app-upsert.bicep' = if (deploymentTarget == 'containerapps') {
   name: 'aca-web-${deploymentIdentifier}'
-  scope: resourceGroup
+  scope: mainResourceGroup
   params: {
     name: !empty(backendServiceName) ? backendServiceName : '${abbrs.webSitesContainerApps}backend-${resourceToken}'
     location: location
@@ -630,7 +653,7 @@ module acaBackend 'core/host/container-app-upsert.bicep' = if (deploymentTarget 
 
 module acaAuth 'core/host/container-apps-auth.bicep' = if (deploymentTarget == 'containerapps' && !empty(clientAppId)) {
   name: 'aca-auth-${deploymentIdentifier}'
-  scope: resourceGroup
+  scope: mainResourceGroup
   params: {
     name: acaBackend.outputs.name
     clientAppId: clientAppId
@@ -712,7 +735,7 @@ module openAi 'br/public:avm/res/cognitive-services/account:0.7.2' = if (isAzure
       ipRules: ipRules
       virtualNetworkRules: [
         {
-          id: isolation.outputs.apimSubnetId
+          id: vnet.outputs.apimSubnetId
         }
       ]
     }
@@ -832,7 +855,7 @@ module textAnalytics 'br/public:avm/res/cognitive-services/account:0.7.2' = if (
       ipRules: ipRules
       virtualNetworkRules: [
         {
-          id: isolation.outputs.apimSubnetId
+          id: vnet.outputs.apimSubnetId
         }
       ]
     }
@@ -956,7 +979,7 @@ module cosmosDb 'br/public:avm/res/document-db/database-account:0.6.1' = if (use
     networkRestrictions: {
       ipRules: map(ipRules, ipRule => ipRule.value)
       networkAclBypass: bypass
-      publicNetworkAccess: empty(ipRules) ? publicNetworkAccess : 'Enabled'      
+      publicNetworkAccess: empty(ipRules) ? publicNetworkAccess : 'Enabled'
       virtualNetworkRules: []
     }
     sqlDatabases: [
@@ -1056,7 +1079,7 @@ var policies = [
 
 module apimIdentity 'core/security/aca-identity.bicep' = {
   name: 'apim-identity-${deploymentIdentifier}'
-  scope: resourceGroup
+  scope: mainResourceGroup
   params: {
     identityName: '${abbrs.managedIdentityUserAssignedIdentities}${abbrs.apiManagementService}${resourceToken}'
     location: location
@@ -1064,7 +1087,7 @@ module apimIdentity 'core/security/aca-identity.bicep' = {
 }
 
 module keyVaultRoleApim 'core/security/role.bicep' = {
-  scope: resourceGroup
+  scope: mainResourceGroup
   name: 'keyvault-role-apim-${deploymentIdentifier}'
   params: {
     principalId: apimIdentity.outputs.principalId
@@ -1090,7 +1113,7 @@ module apim 'br/public:avm/res/api-management/service:0.6.0' = {
     location: apimLocation
     sku: apimSkuName
     virtualNetworkType: 'External'
-    subnetResourceId: isolation.outputs.apimSubnetId
+    subnetResourceId: vnet.outputs.apimSubnetId
     namedValues: [
       {
         displayName: 'userManagedIdentityClientId'
@@ -1146,15 +1169,15 @@ module apim 'br/public:avm/res/api-management/service:0.6.0' = {
 
 module appGateway 'core/networking/app-gateway.bicep' = {
   name: 'app-gateway-${deploymentIdentifier}'
-  scope: resourceGroup
+  scope: mainResourceGroup
   params: {
     location: location
-    gatewaySubnetResourceId: isolation.outputs.appGtwSubnetId
+    gatewaySubnetResourceId: vnet.outputs.appGtwSubnetId
     aiName: monitoring.outputs.applicationInsightsName
     gatewayName: !empty(gatewayName) ? gatewayName : '${abbrs.networkApplicationGateways}${resourceToken}'
     tags: tags
     publicIPName: '${abbrs.networkPublicIPAddresses}${resourceToken}'
-    domainNameLabel: resourceToken
+    domainNameLabel: '${appName}${resourceToken}'
     webAppName: backendServiceNameComputed
     gatewayBase64EncodedCertificate: gatewayBase64EncodedCertificate
     gatewayCertificatePassword: gatewayCertificatePassword
@@ -1165,17 +1188,18 @@ module appGateway 'core/networking/app-gateway.bicep' = {
   }
 }
 
-module isolation 'network-isolation.bicep' = {
-  name: 'networks-${deploymentIdentifier}'
-  scope: resourceGroup
+module vnet 'core/networking/vnet.bicep' = {
+  scope: vnetResourceGroup
+  name: 'network'
   params: {
-    deploymentTarget: deploymentTarget
-    location: location
     tags: tags
-    vnetName: '${abbrs.virtualNetworks}${resourceToken}'
-    // Need to check deploymentTarget due to https://github.com/Azure/bicep/issues/3990
-    appServicePlanName: deploymentTarget == 'appservice' ? appServicePlan.outputs.name : ''
-    usePrivateEndpoint: usePrivateEndpoint
+    location: vnetResourceGroup.location
+    addressRange: vnetAddressRange
+    name: vnetName
+    subnetPrefixLength: vnetSubnetPrefixLength
+    apimSubnetExistingRouteTableName: vnetApimRouteTableName
+    appGatewayExistingRouteTableName: vnetAppGatewayRouteTableName
+    hasCustomDnsServers: vnetHasCustomDnsServers
   }
 }
 
@@ -1234,7 +1258,7 @@ var privateEndpointConnections = concat(otherPrivateEndpointConnections, openAiP
 
 module privateEndpoints 'private-endpoints.bicep' = if (usePrivateEndpoint && deploymentTarget == 'appservice') {
   name: 'privateEndpoints-${deploymentIdentifier}'
-  scope: resourceGroup
+  scope: mainResourceGroup
   params: {
     location: location
     tags: tags
@@ -1242,8 +1266,12 @@ module privateEndpoints 'private-endpoints.bicep' = if (usePrivateEndpoint && de
     privateEndpointConnections: privateEndpointConnections
     applicationInsightsId: useApplicationInsights ? monitoring.outputs.applicationInsightsId : ''
     logAnalyticsWorkspaceId: useApplicationInsights ? monitoring.outputs.logAnalyticsWorkspaceId : ''
-    vnetName: isolation.outputs.vnetName
-    vnetPeSubnetName: isolation.outputs.backendSubnetId
+    vnetName: vnet.outputs.vnetName
+    vnetResourceGroupName: vnetResourceGroup.name
+    vnetPeSubnetName: vnet.outputs.backendSubnetId
+    privateDnsZonesResourceGroupName: privateDnsZonesResourceGroupName
+    useExistingPrivateDnsZones: useExistingPrivateDnsZones
+    linkPrivateEndpointToPrivateDnsZone: linkPrivateEndpointToPrivateDnsZone
   }
 }
 
@@ -1262,7 +1290,7 @@ module openAiRoleUser 'core/security/role.bicep' = if (isAzureOpenAiHost && depl
 
 // For both document intelligence and computer vision
 module cognitiveServicesRoleUser 'core/security/role.bicep' = {
-  scope: resourceGroup
+  scope: mainResourceGroup
   name: 'cognitiveservices-role-user-${deploymentIdentifier}'
   params: {
     principalId: principalId
@@ -1377,7 +1405,7 @@ module textAnalyticsRoleUser 'core/security/role.bicep' = if (usePiiRedaction) {
 }
 
 module keyVaultRoleUser 'core/security/role.bicep' = {
-  scope: resourceGroup
+  scope: mainResourceGroup
   name: 'keyvault-role-user-${deploymentIdentifier}'
   params: {
     principalId: principalId
@@ -1550,7 +1578,7 @@ module documentIntelligenceRoleBackend 'core/security/role.bicep' = if (useUserU
 }
 
 module keyVaultRoleBackend 'core/security/role.bicep' = {
-  scope: resourceGroup
+  scope: mainResourceGroup
   name: 'keyvault-role-backend-${deploymentIdentifier}'
   params: {
     principalId: (deploymentTarget == 'appservice')
@@ -1574,7 +1602,7 @@ module textAnalyticsRoleApim 'core/security/role.bicep' = if (usePiiRedaction) {
 output AZURE_LOCATION string = location
 output AZURE_TENANT_ID string = tenantId
 output AZURE_AUTH_TENANT_ID string = authTenantId
-output AZURE_RESOURCE_GROUP string = resourceGroup.name
+output AZURE_RESOURCE_GROUP string = mainResourceGroup.name
 
 // Shared by all OpenAI deployments
 output OPENAI_HOST string = openAiHost

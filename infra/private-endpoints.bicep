@@ -4,6 +4,8 @@ param tags object = {}
 @description('The name of an existing VNet')
 param vnetName string
 
+param vnetResourceGroupName string = resourceGroup().name
+
 @description('The location to create the private endpoints')
 param location string = resourceGroup().location
 
@@ -11,6 +13,10 @@ param vnetPeSubnetName string
 
 @description('A formatted array of private endpoint connections containing the dns zone name, group id, and list of resource ids of Private Endpoints to create')
 param privateEndpointConnections array
+
+param privateDnsZonesResourceGroupName string = ''
+param useExistingPrivateDnsZones bool = false
+param linkPrivateEndpointToPrivateDnsZone bool = true
 
 @description('A unique token to append to the end of all resource names')
 param resourceToken string
@@ -31,13 +37,21 @@ param logAnalyticsWorkspaceId string
 
 var abbrs = loadJsonContent('abbreviations.json')
 
+var privateDnsZonesResourceGroup = !empty(privateDnsZonesResourceGroupName)
+  ? privateDnsZonesResourceGroupName
+  : resourceGroup().name
+
 // DNS Zones
 module dnsZones './core/networking/private-dns-zones.bicep' = [for privateEndpointConnection in privateEndpointConnections: {
   name: '${privateEndpointConnection.dnsZoneName}-dnszone'
+  scope: resourceGroup(privateDnsZonesResourceGroup)
   params: {
     dnsZoneName: privateEndpointConnection.dnsZoneName
     tags: tags
     virtualNetworkName: vnetName
+    virtualNetworkResourceGroupName: vnetResourceGroupName
+    useExistingPrivateDnsZones: useExistingPrivateDnsZones
+    linkPrivateEndpointToPrivateDnsZone: linkPrivateEndpointToPrivateDnsZone
   }
 }]
 
@@ -78,6 +92,9 @@ module monitorDnsZones './core/networking/private-dns-zones.bicep' = [for monito
     dnsZoneName: monitorDnsZoneName
     tags: tags
     virtualNetworkName: vnetName
+    virtualNetworkResourceGroupName: vnetResourceGroupName
+    useExistingPrivateDnsZones: useExistingPrivateDnsZones
+    linkPrivateEndpointToPrivateDnsZone: linkPrivateEndpointToPrivateDnsZone
   }
 }]
 // Get blob DNS zone index for monitor private link
