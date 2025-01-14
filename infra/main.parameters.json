@@ -346,6 +346,12 @@
     },
     "linkPrivateEndpointToPrivateDnsZone": {
       "value": "${LINK_PRIVATE_ENDPOINT_TO_PRIVATE_DNS_ZONE=true}"
+    },
+    "gatewayBase64EncodedCertificate":{
+      "value": "${GATEWAY_BASE64_ENCODED_CERTIFICATE}"
+    },
+    "gatewayCertificatePassword": {
+      "value": "${GATEWAY_CERTIFICATE_PASSWORD}"
     }
   }
 }
