@@ -95,7 +95,7 @@ param keyVaultSkuName string = 'premium' // Set in main.parameters.json
 @allowed(['azure', 'openai', 'azure_custom'])
 param openAiHost string // Set in main.parameters.json
 param isAzureOpenAiHost bool = startsWith(openAiHost, 'azure')
-param deployAzureOpenAi bool = openAiHost == 'azure'
+param deployAzureOpenAi bool = startsWith(openAiHost, 'azure')
 param azureOpenAiCustomUrl string = ''
 param azureOpenAiApiVersion string = ''
 @secure()
@@ -536,7 +536,7 @@ var appEnvVariables = {
   AZURE_OPENAI_GPT4V_DEPLOYMENT: useGPT4V ? gpt4v.deploymentName : ''
   AZURE_OPENAI_API_VERSION: azureOpenAiApiVersion
   AZURE_OPENAI_API_KEY_OVERRIDE: azureOpenAiApiKey
-  AZURE_OPENAI_CUSTOM_URL: azureOpenAiCustomUrl
+  AZURE_OPENAI_CUSTOM_URL: 'https://${apim.name}.azure-api.net/openai'
   // Used only with non-Azure OpenAI deployments
   OPENAI_API_KEY: openAiApiKey
   OPENAI_ORGANIZATION: openAiApiOrganization

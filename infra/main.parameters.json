@@ -144,7 +144,7 @@
       "value": "${AZURE_OPENAI_GPT4V_DEPLOYMENT_CAPACITY}"
     },
     "openAiHost": {
-      "value": "${OPENAI_HOST=azure}"
+      "value": "${OPENAI_HOST=azure_custom}"
     },
     "azureOpenAiCustomUrl": {
       "value": "${AZURE_OPENAI_CUSTOM_URL}"
