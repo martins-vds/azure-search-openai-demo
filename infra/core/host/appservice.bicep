@@ -30,6 +30,7 @@ param kind string = 'app,linux'
 
 // Microsoft.Web/sites/config
 param allowedOrigins array = []
+param authAllowedRedirectUrls array = []
 param additionalScopes array = []
 param additionalAllowedAudiences array = []
 param allowedApplications array = []
@@ -180,7 +181,7 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
             openIdIssuer: authenticationIssuerUri
           }
           login: {
-            loginParameters: ['scope=${join(union(requiredScopes, additionalScopes), ' ')}']
+            loginParameters: ['scope=${join(union(requiredScopes, additionalScopes), ' ')}']            
           }
           validation: {
             allowedAudiences: union(requiredAudiences, additionalAllowedAudiences)
@@ -194,6 +195,7 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
         tokenStore: {
           enabled: true
         }
+        allowedExternalRedirectUrls: authAllowedRedirectUrls
       }
     }
   }

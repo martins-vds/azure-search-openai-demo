@@ -352,6 +352,9 @@
     },
     "gatewayCertificatePassword": {
       "value": "${GATEWAY_CERTIFICATE_PASSWORD}"
+    },
+    "gatewayPublicUrl": {
+      "value": "${GATEWAY_PUBLIC_URL}"
     }
   }
 }

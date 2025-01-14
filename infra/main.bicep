@@ -47,6 +47,7 @@ param apimSkuName string = 'Developer' // Set in main.parameters.json
 
 param gatewayName string = ''
 param gatewayAllowedIps array = []
+param gatewayPublicUrl string = ''
 param gatewayPreventionMode bool = false
 @secure()
 param gatewayBase64EncodedCertificate string = ''
@@ -341,7 +342,10 @@ var loginEndpointFixed = lastIndexOf(loginEndpoint, '/') == length(loginEndpoint
 var allMsftAllowedOrigins = !(empty(clientAppId)) ? union(msftAllowedOrigins, [loginEndpointFixed]) : msftAllowedOrigins
 // Combine custom origins with Microsoft origins, remove any empty origin strings and remove any duplicate origins
 var allowedOrigins = reduce(
-  filter(union(split(allowedOrigin, ';'), allMsftAllowedOrigins), o => length(trim(o)) > 0),
+  filter(
+    union(split(allowedOrigin, ';'), allMsftAllowedOrigins, !empty(gatewayPublicUrl) ? [gatewayPublicUrl] : []),
+    o => length(trim(o)) > 0
+  ),
   [],
   (cur, next) => union(cur, [next])
 )
@@ -566,6 +570,12 @@ module backend 'core/host/appservice.bicep' = if (deploymentTarget == 'appservic
     ipRules: ipRules
     publicNetworkAccess: !empty(ipRules) ? 'Enabled' : publicNetworkAccess
     allowedOrigins: allowedOrigins
+    authAllowedRedirectUrls: union(
+      [
+        appGateway.outputs.fqdn
+      ],
+      empty(gatewayPublicUrl) ? [] : [gatewayPublicUrl]
+    )
     clientAppId: clientAppId
     serverAppId: serverAppId
     enableUnauthenticatedAccess: enableUnauthenticatedAccess
