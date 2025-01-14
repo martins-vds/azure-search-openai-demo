@@ -167,6 +167,12 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
   resource configAuth 'config' = if (!(empty(clientAppId)) && !disableAppServicesAuthentication) {
     name: 'authsettingsV2'
     properties: {
+      httpSettings: {
+        requireHttps: true
+        forwardProxy: {
+          convention: 'Standard'
+        }
+      }
       globalValidation: {
         requireAuthentication: true
         unauthenticatedClientAction: enableUnauthenticatedAccess ? 'AllowAnonymous' : 'RedirectToLoginPage'
