@@ -103,6 +103,19 @@ param azureOpenAiApiKey string = ''
 param openAiServiceName string = ''
 param openAiResourceGroupName string = ''
 
+@description('If you want to provide resiliency when single region exceeds quota, then select Multi and provide URL to an additional Azure OpenAI endpoint. Otherwise, maintain default entry of Single and only provide one Azure OpenAI endpoint.')
+@allowed([
+  'Single'
+  'Multi'
+])
+param azureOpenAiRegionType string = 'Single'
+
+param enableApimOpenAiRetryPolicy bool = true
+
+param openAiResourceNameSecondary string = ''
+param openAiResourceGroupNameSecondary string = ''
+param openAiResourceGroupLocationSecondary string = location
+
 param speechServiceResourceGroupName string = ''
 param speechServiceLocation string = ''
 param speechServiceName string = ''
@@ -359,6 +372,8 @@ var resourceGroupNameComputed = !empty(resourceGroupName)
 
 var resourceToken = toLower(uniqueString(subscription().id, resourceGroupNameComputed, environmentName, location))
 
+var isMultiRegionOpenAi = azureOpenAiRegionType == 'Multi'
+
 // Organize resources in a resource group
 resource mainResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' = {
   name: resourceGroupNameComputed
@@ -372,6 +387,10 @@ resource vnetResourceGroup 'Microsoft.Resources/resourceGroups@2024-03-01' exist
 
 resource openAiResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' existing = if (!empty(openAiResourceGroupName)) {
   name: !empty(openAiResourceGroupName) ? openAiResourceGroupName : mainResourceGroup.name
+}
+
+resource openAiResourceGroupSecondary 'Microsoft.Resources/resourceGroups@2024-03-01' existing = if (!empty(openAiResourceGroupNameSecondary) && isMultiRegionOpenAi) {
+  name: !empty(openAiResourceGroupNameSecondary) ? openAiResourceGroupNameSecondary : mainResourceGroup.name
 }
 
 resource documentIntelligenceResourceGroup 'Microsoft.Resources/resourceGroups@2021-04-01' existing = if (!empty(documentIntelligenceResourceGroupName)) {
@@ -755,6 +774,36 @@ module openAi 'br/public:avm/res/cognitive-services/account:0.7.2' = if (isAzure
   }
 }
 
+module openAiSecondary 'br/public:avm/res/cognitive-services/account:0.7.2' = if (isAzureOpenAiHost && deployAzureOpenAi && isMultiRegionOpenAi) {
+  name: 'openai-secondary-${deploymentIdentifier}'
+  scope: openAiResourceGroupSecondary
+  params: {
+    name: !empty(openAiResourceNameSecondary)
+      ? openAiResourceNameSecondary
+      : '${abbrs.cognitiveServicesAccounts}aoai-sec-${resourceToken}'
+    location: openAiResourceGroupLocationSecondary
+    tags: tags
+    kind: 'OpenAI'
+    customSubDomainName: !empty(openAiServiceName)
+      ? openAiServiceName
+      : '${abbrs.cognitiveServicesAccounts}aoai-sec-${resourceToken}'
+    publicNetworkAccess: empty(ipRules) ? publicNetworkAccess : 'Enabled'
+    networkAcls: {
+      defaultAction: 'Deny'
+      bypass: bypass
+      ipRules: ipRules
+      virtualNetworkRules: [
+        {
+          id: vnet.outputs.apimSubnetId
+        }
+      ]
+    }
+    sku: openAiSkuName
+    deployments: openAiDeployments
+    disableLocalAuth: true
+  }
+}
+
 // Formerly known as Form Recognizer
 // Does not support bypass
 module documentIntelligence 'br/public:avm/res/cognitive-services/account:0.7.2' = {
@@ -1029,16 +1078,37 @@ module cosmosDb 'br/public:avm/res/document-db/database-account:0.6.1' = if (use
   }
 }
 
-var openAiBackends = [
-  {
-    name: 'aoai-primary-backend'
-    tls: {
-      validateCertificateChain: false
-      validateCertificateName: false
+var openAiBackends = union(
+  [
+    {
+      name: 'aoai-primary-backend'
+      tls: {
+        validateCertificateChain: false
+        validateCertificateName: false
+      }
+      url: '${openAi.outputs.endpoint}/openai'
     }
-    url: '${openAi.outputs.endpoint}/openai'
-  }
-]
+  ],
+  isMultiRegionOpenAi
+    ? [
+        {
+          name: 'aoai-secondary-backend'
+          tls: {
+            validateCertificateChain: false
+            validateCertificateName: false
+          }
+          url: '${openAiSecondary.outputs.endpoint}/openai'
+        }
+      ]
+    : []
+)
+
+var openApiXmlRetry = enableApimOpenAiRetryPolicy
+  ? loadTextContent('./core/apim/apim_policies/aoai_retry_singleregion.xml')
+  : loadTextContent('./core/apim/apim_policies/aoai_singleregion.xml')
+var openApiPolicyXml = isMultiRegionOpenAi
+  ? loadTextContent('./core/apim/apim_policies/aoai_retry_multiregion.xml')
+  : openApiXmlRetry
 
 var openAiApi = {
   displayName: 'Azure OpenAI API'
@@ -1057,7 +1127,7 @@ var openAiApi = {
   policies: [
     {
       format: 'rawxml'
-      value: loadTextContent('./core/apim/apim_policies/aoai_singleregion.xml')
+      value: openApiPolicyXml
     }
   ]
   subscriptions: [
@@ -1093,16 +1163,6 @@ module apimIdentity 'core/security/aca-identity.bicep' = {
   params: {
     identityName: '${abbrs.managedIdentityUserAssignedIdentities}${abbrs.apiManagementService}${resourceToken}'
     location: location
-  }
-}
-
-module keyVaultRoleApim 'core/security/role.bicep' = {
-  scope: mainResourceGroup
-  name: 'keyvault-role-apim-${deploymentIdentifier}'
-  params: {
-    principalId: apimIdentity.outputs.principalId
-    roleDefinitionId: '4633458b-17de-408a-b874-0445c86b69e6'
-    principalType: 'ServicePrincipal'
   }
 }
 
@@ -1223,7 +1283,8 @@ var openAiPrivateEndpointConnection = (isAzureOpenAiHost && deployAzureOpenAi &&
         resourceIds: concat(
           [openAi.outputs.resourceId],
           useGPT4V ? [computerVision.outputs.resourceId] : [],
-          !useLocalPdfParser ? [documentIntelligence.outputs.resourceId] : []
+          !useLocalPdfParser ? [documentIntelligence.outputs.resourceId] : [],
+          isProd ? [openAiSecondary.outputs.resourceId] : []
         )
       }
     ]
@@ -1291,6 +1352,16 @@ var principalType = empty(runningOnGh) && empty(runningOnAdo) ? 'User' : 'Servic
 module openAiRoleUser 'core/security/role.bicep' = if (isAzureOpenAiHost && deployAzureOpenAi) {
   scope: openAiResourceGroup
   name: 'openai-role-user-${deploymentIdentifier}'
+  params: {
+    principalId: principalId
+    roleDefinitionId: '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
+    principalType: principalType
+  }
+}
+
+module openAiSecondaryRoleUser 'core/security/role.bicep' = if (isAzureOpenAiHost && deployAzureOpenAi && isProd) {
+  scope: openAiResourceGroupSecondary
+  name: 'openai-secondary-role-user-${deploymentIdentifier}'
   params: {
     principalId: principalId
     roleDefinitionId: '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
@@ -1437,6 +1508,28 @@ module openAiRoleBackend 'core/security/role.bicep' = if (isAzureOpenAiHost && d
   }
 }
 
+module openAiSecondaryRoleBackend 'core/security/role.bicep' = if (isAzureOpenAiHost && deployAzureOpenAi && isProd) {
+  scope: openAiResourceGroupSecondary
+  name: 'openai-secondary-role-backend-${deploymentIdentifier}'
+  params: {
+    principalId: (deploymentTarget == 'appservice')
+      ? backend.outputs.identityPrincipalId
+      : acaBackend.outputs.identityPrincipalId
+    roleDefinitionId: '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
+    principalType: 'ServicePrincipal'
+  }
+}
+
+module keyVaultRoleApim 'core/security/role.bicep' = {
+  scope: mainResourceGroup
+  name: 'keyvault-role-apim-${deploymentIdentifier}'
+  params: {
+    principalId: apimIdentity.outputs.principalId
+    roleDefinitionId: '4633458b-17de-408a-b874-0445c86b69e6'
+    principalType: 'ServicePrincipal'
+  }
+}
+
 module openAiRoleApim 'core/security/role.bicep' = if (isAzureOpenAiHost && deployAzureOpenAi) {
   scope: openAiResourceGroup
   name: 'openai-role-apim-${deploymentIdentifier}'
@@ -1447,9 +1540,29 @@ module openAiRoleApim 'core/security/role.bicep' = if (isAzureOpenAiHost && depl
   }
 }
 
+module openAiSecondaryRoleApim 'core/security/role.bicep' = if (isAzureOpenAiHost && deployAzureOpenAi && isProd) {
+  scope: openAiResourceGroupSecondary
+  name: 'openai-secondary-role-apim-${deploymentIdentifier}'
+  params: {
+    principalId: apimIdentity.outputs.principalId
+    roleDefinitionId: '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
+    principalType: 'ServicePrincipal'
+  }
+}
+
 module openAiRoleSearchService 'core/security/role.bicep' = if (isAzureOpenAiHost && deployAzureOpenAi && useIntegratedVectorization) {
   scope: openAiResourceGroup
   name: 'openai-role-searchservice-${deploymentIdentifier}'
+  params: {
+    principalId: searchService.outputs.principalId
+    roleDefinitionId: '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
+    principalType: 'ServicePrincipal'
+  }
+}
+
+module openAiSecondaryRoleSearchService 'core/security/role.bicep' = if (isAzureOpenAiHost && deployAzureOpenAi && isProd && useIntegratedVectorization) {
+  scope: openAiResourceGroupSecondary
+  name: 'openai-secondary-role-searchservice-${deploymentIdentifier}'
   params: {
     principalId: searchService.outputs.principalId
     roleDefinitionId: '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
